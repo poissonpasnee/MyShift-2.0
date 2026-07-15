@@ -282,6 +282,7 @@
   const drawer = document.getElementById("drawer");
   const overlay = document.getElementById("overlay");
   function openDrawer() {
+    drawer.classList.remove("hidden");
     drawer.classList.add("open");
     overlay.classList.remove("hidden");
     requestAnimationFrame(() => overlay.classList.add("visible"));
@@ -289,7 +290,10 @@
   function closeDrawer() {
     drawer.classList.remove("open");
     overlay.classList.remove("visible");
-    setTimeout(() => overlay.classList.add("hidden"), 200);
+    setTimeout(() => {
+      overlay.classList.add("hidden");
+      drawer.classList.add("hidden");
+    }, 200);
   }
   overlay.addEventListener("click", closeDrawer);
 
