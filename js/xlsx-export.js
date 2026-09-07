@@ -153,7 +153,7 @@
   }
   function monthStats(y, m, entries, config, bonus) {
     const tollCount = entries.reduce((s, e) => s + (e.tollCount || 0), 0);
-    const tollMontant = tollCount * config.tollAmount;
+    const tollMontant = entries.reduce((s, e) => s + (e.tollMontant || 0), 0);
     const shiftPrimes = entries.reduce((s, e) => s + rateFor(e.status, config), 0);
     const salary = config.salaryBase + shiftPrimes + tollMontant + bonus;
     const count = (status) => entries.filter((e) => e.status === status).length;
@@ -167,7 +167,7 @@
   }
   function detailRows(entries, config) {
     return entries.map((e) => {
-      const tollEarned = (e.tollCount || 0) * config.tollAmount;
+      const tollEarned = e.tollMontant || 0;
       return {
         dayOfWeek: dayFr(e.date),
         date: e.date,
@@ -480,4 +480,74 @@
     xml += `<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>`;
     xml += `<Default Extension="xml" ContentType="application/xml"/>`;
     xml += `<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>`;
-    xml += `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadshe
+    xml += `<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`;
+    for (let i = 1; i <= sheetCount; i++) {
+      xml += `<Override PartName="/xl/worksheets/sheet${i}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+    }
+    xml += `</Types>`;
+    return xml;
+  }
+  function rootRelsXml() {
+    return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  }
+  function workbookXml(names) {
+    let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`;
+    xml += `<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`;
+    xml += `<sheets>`;
+    names.forEach((n, i) => { xml += `<sheet name="${esc(n)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`; });
+    xml += `</sheets></workbook>`;
+    return xml;
+  }
+  function workbookRelsXml(sheetCount) {
+    let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`;
+    xml += `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">`;
+    for (let i = 1; i <= sheetCount; i++) {
+      xml += `<Relationship Id="rId${i}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i}.xml"/>`;
+    }
+    xml += `<Relationship Id="rId${sheetCount + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+    xml += `</Relationships>`;
+    return xml;
+  }
+
+  function buildWorkbook(sheets, names) {
+    const files = [
+      { name: "[Content_Types].xml", content: contentTypesXml(sheets.length) },
+      { name: "_rels/.rels", content: rootRelsXml() },
+      { name: "xl/workbook.xml", content: workbookXml(names) },
+      { name: "xl/_rels/workbook.xml.rels", content: workbookRelsXml(sheets.length) },
+      { name: "xl/styles.xml", content: stylesXml() }
+    ];
+    sheets.forEach((xml, i) => files.push({ name: `xl/worksheets/sheet${i + 1}.xml`, content: xml }));
+    return buildZip(files);
+  }
+
+  // =====================================================================
+  // Public API
+  // =====================================================================
+  function buildMonthly(year, month, config) {
+    const filtered = entriesForMonth(config.entries, year, month);
+    const bonus = (config.monthlyBonuses && config.monthlyBonuses[ymKey(year, month)]) || 0;
+    const stats = monthStats(year, month, filtered, config, bonus);
+    const sheet = sheetMonthDetail(stats.label, year, detailRows(filtered, config), stats, true);
+    return buildWorkbook([sheet], [stats.label]);
+  }
+
+  function buildAnnual(year, config) {
+    const filtered = (config.entries || []).filter((e) => Number(e.date.split("-")[0]) === year);
+    const bundles = [];
+    for (let m = 1; m <= 12; m++) {
+      const me = entriesForMonth(filtered, year, m);
+      const bonus = (config.monthlyBonuses && config.monthlyBonuses[ymKey(year, m)]) || 0;
+      bundles.push({ m, entries: me, stats: monthStats(year, m, me, config, bonus) });
+    }
+    const sheets = [sheetRecapAnnual(year, bundles.map((b) => b.stats))];
+    const names = ["Récap annuel"];
+    bundles.forEach((b) => {
+      sheets.push(sheetMonthDetail(b.stats.label, year, detailRows(b.entries, config), b.stats, false));
+      names.push(b.stats.label);
+    });
+    return buildWorkbook(sheets, names);
+  }
+
+  global.XlsxExport = { buildMonthly, buildAnnual };
+})(window);

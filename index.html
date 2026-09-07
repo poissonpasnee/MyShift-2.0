@@ -96,14 +96,26 @@
       <label class="field-label" for="edit-day-note">Note</label>
       <input type="text" id="edit-day-note" class="text-input" placeholder="Note">
       <div class="field-label">Péages</div>
-      <div class="segmented" id="edit-day-toll">
-        <button data-value="0" class="segmented-btn">0</button>
-        <button data-value="1" class="segmented-btn">1</button>
-        <button data-value="2" class="segmented-btn">2</button>
-      </div>
+      <div id="edit-day-tolls"></div>
       <p class="hint">La modification sera enregistrée en fermant cette fenêtre.</p>
       <div class="dialog-actions">
         <button class="btn-primary" id="edit-day-apply">✓ Appliquer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Peage edit dialog -->
+  <div id="dialog-peage-edit" class="dialog hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box">
+      <h2 id="peage-edit-title">Péage</h2>
+      <label class="field-label" for="peage-edit-name">Nom</label>
+      <input type="text" id="peage-edit-name" class="text-input" placeholder="Ex. A62 Sud">
+      <label class="field-label" for="peage-edit-amount">Montant (€)</label>
+      <input type="number" step="0.01" id="peage-edit-amount" class="text-input">
+      <div class="dialog-actions">
+        <button class="btn-text danger-text hidden" id="peage-edit-delete">Supprimer</button>
+        <button class="btn-text" data-action="close-dialog">Annuler</button>
+        <button class="btn-primary" id="peage-edit-save">Enregistrer</button>
       </div>
     </div>
   </div>
@@ -177,11 +189,16 @@
           <div class="value-row" data-edit="rateMn" data-label="Taux MN (€)" data-type="number">
             <span>Taux MN</span><span class="value" id="set-rateMn"></span>
           </div>
-          <div class="value-row" data-edit="tollAmount" data-label="Montant péage (€)" data-type="number">
-            <span>Montant péage</span><span class="value" id="set-tollAmount"></span>
-          </div>
           <div class="info-row hidden" id="set-annual-estimate-row">
             <span class="muted">Estimation base annuelle</span><span class="value accent" id="set-annual-estimate"></span>
+          </div>
+        </div>
+
+        <h3 class="section-header">Péages</h3>
+        <div class="settings-group" id="set-peages-list"></div>
+        <div class="settings-group" style="margin-top:8px">
+          <div class="value-row" id="btn-add-peage">
+            <span class="accent">+ Ajouter un péage</span>
           </div>
         </div>
 

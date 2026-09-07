@@ -33,6 +33,17 @@
 
 * { box-sizing: border-box; }
 
+button, .day-cell, .drawer-item, .value-row, .switch-row, .segmented-btn, .month-btn, .palette-option {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+button:active, .day-cell:active {
+  transform: scale(0.96);
+}
+.day-cell, .action-btn, .secondary-btn, .btn-primary, .icon-btn {
+  transition: transform 0.1s ease, background-color 0.15s ease;
+}
+
 html, body {
   margin: 0;
   padding: 0;
@@ -117,7 +128,14 @@ button, input {
   -webkit-overflow-scrolling: touch;
 }
 
-.pager { width: 100%; }
+.pager {
+  width: 100%;
+  animation: pager-fade-in 0.18s ease;
+}
+@keyframes pager-fade-in {
+  from { opacity: 0.3; }
+  to { opacity: 1; }
+}
 
 .week-header {
   display: grid;
@@ -446,6 +464,7 @@ button, input {
 }
 .btn-primary { background: var(--color-primary); color: var(--color-on-primary); }
 .btn-text { background: none; color: var(--color-primary); }
+.btn-text.danger-text { color: var(--danger); margin-right: auto; }
 
 .text-input {
   width: 100%;

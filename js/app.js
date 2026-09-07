@@ -80,12 +80,14 @@
       const eym = ymOf(e.date);
       return eym.y === ym.y && eym.m === ym.m;
     });
+    const peages = Storage.getPeages();
     let total = state.settings.exportBase ? state.settings.salaryBase : 0;
     let toll = 0;
     const stats = { jour: 0, nuit: 0, mn: 0, repos: 0, conges: 0 };
     entries.forEach((e) => {
       total += rateFor(e.status);
-      toll += e.tollCount * state.settings.tollAmount;
+      const t = Storage.tollTotalsForEntry(e, peages);
+      toll += t.amount;
       if (stats[e.status] !== undefined) stats[e.status]++;
     });
     return { total, toll, stats, entries };
@@ -113,7 +115,7 @@
     return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   }
 
-  function dayCellHtml(dateStr, entriesMap, colors) {
+  function dayCellHtml(dateStr, entriesMap, colors, peages) {
     if (dateStr === null) return `<div class="day-cell empty"></div>`;
     const entry = entriesMap[dateStr];
     const isSelected = dateStr === state.selectedDate;
@@ -132,8 +134,9 @@
     const dayNum = Number(dateStr.split("-")[2]);
     let dots = "";
     if (entry && entry.note) dots += `<span class="day-note-dot" style="background:${textColor}"></span>`;
-    if (entry && entry.tollCount > 0) {
-      for (let i = 0; i < entry.tollCount; i++) {
+    if (entry) {
+      const tollCount = Storage.tollTotalsForEntry(entry, peages).count;
+      for (let i = 0; i < Math.min(tollCount, 3); i++) {
         dots += `<span class="day-note-dot" style="background:${colors.peage}"></span>`;
       }
     }
@@ -144,15 +147,29 @@
     </button>`;
   }
 
+  const WEEKDAY_ABBR = ["DI", "LU", "MA", "ME", "JE", "VE", "SA"];
+  function renderWeekHeader(startDow, showWeek) {
+    const rowClass = showWeek ? "week-header with-week-numbers" : "week-header";
+    let cells = showWeek ? `<div class="week-header-cell"></div>` : "";
+    for (let i = 0; i < 7; i++) {
+      const dow = (startDow + i) % 7;
+      const nextDow = (dow + 1) % 7;
+      cells += `<div class="week-header-cell">${WEEKDAY_ABBR[dow]}/${WEEKDAY_ABBR[nextDow]}</div>`;
+    }
+    return `<div class="${rowClass}">${cells}</div>`;
+  }
+
   function renderCalendar(ym) {
     const entriesMap = Storage.getEntriesMap();
     const colors = shiftColors();
+    const peages = Storage.getPeages();
     const days = buildDaysGrid(ym);
     const rows = [];
     for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7));
 
     const showWeek = state.settings.showWeekNumbers;
-    let html = "";
+    const startDow = state.settings.weekStartSunday ? 0 : 1;
+    let html = renderWeekHeader(startDow, showWeek);
     rows.forEach((row) => {
       const rowClass = showWeek ? "calendar-row with-week-numbers" : "calendar-row";
       let weekCell = "";
@@ -160,7 +177,7 @@
         const firstReal = row.find((d) => d !== null);
         weekCell = `<div class="week-number">${firstReal ? isoWeekNumber(firstReal) : ""}</div>`;
       }
-      html += `<div class="${rowClass}">${weekCell}${row.map((d) => dayCellHtml(d, entriesMap, colors)).join("")}</div>`;
+      html += `<div class="${rowClass}">${weekCell}${row.map((d) => dayCellHtml(d, entriesMap, colors, peages)).join("")}</div>`;
     });
     return html;
   }
@@ -213,6 +230,9 @@
     document.getElementById("btn-month-label").textContent = monthLabel(state.currentMonth);
     const pager = document.getElementById("pager");
     pager.innerHTML = renderCalendar(state.currentMonth) + renderSummaryCard(state.currentMonth);
+    pager.style.animation = "none";
+    void pager.offsetWidth;
+    pager.style.animation = "";
   }
 
   // ---------------------------------------------------------------------
@@ -302,13 +322,33 @@
   // ---------------------------------------------------------------------
   function applyPaint(dateStr, status) {
     const existing = Storage.getEntry(dateStr);
-    Storage.saveEntry(dateStr, status, existing ? existing.ctype : null, existing ? existing.note : null, existing ? existing.tollCount : 0);
+    Storage.saveEntry(dateStr, status, existing ? existing.ctype : null, existing ? existing.note : null, existing ? existing.tolls : {});
   }
 
   function handleDayClick(dateStr) {
     state.selectedDate = dateStr;
     if (state.paintStatus) applyPaint(dateStr, state.paintStatus);
     renderMonth();
+  }
+
+  function renderEditDayTolls(tolls) {
+    const peages = Storage.getPeages();
+    const container = document.getElementById("edit-day-tolls");
+    if (peages.length === 0) {
+      container.innerHTML = `<p class="hint">Aucun péage configuré — ajoute-en un dans Réglages → Péages.</p>`;
+      return;
+    }
+    container.innerHTML = peages.map((p) => {
+      const current = tolls[p.id] || 0;
+      const btns = [0, 1, 2].map((v) =>
+        `<button data-value="${v}" class="segmented-btn${v === current ? " selected" : ""}">${v}</button>`
+      ).join("");
+      return `
+        <div class="value-row">
+          <span>${p.name}</span>
+          <div class="segmented" data-peage-id="${p.id}" style="width:132px">${btns}</div>
+        </div>`;
+    }).join("");
   }
 
   function openEditDialogForDate(dateStr) {
@@ -319,10 +359,8 @@
     document.getElementById("edit-day-note").value = (entry && entry.note) || "";
     document.getElementById("dialog-edit-day").dataset.status = status;
     document.getElementById("dialog-edit-day").dataset.ctype = (entry && entry.ctype) || "";
-    const toll = (entry && entry.tollCount) || 0;
-    document.querySelectorAll("#edit-day-toll .segmented-btn").forEach((btn) => {
-      btn.classList.toggle("selected", Number(btn.dataset.value) === toll);
-    });
+    state.editingTolls = Object.assign({}, (entry && entry.tolls) || {});
+    renderEditDayTolls(state.editingTolls);
     openDialog("dialog-edit-day");
   }
 
@@ -332,9 +370,7 @@
     const status = dialog.dataset.status;
     const ctype = dialog.dataset.ctype || null;
     const note = document.getElementById("edit-day-note").value.trim();
-    const selectedBtn = document.querySelector("#edit-day-toll .segmented-btn.selected");
-    const toll = selectedBtn ? Number(selectedBtn.dataset.value) : 0;
-    Storage.saveEntry(state.editingDate, status, ctype, note || null, toll);
+    Storage.saveEntry(state.editingDate, status, ctype, note || null, state.editingTolls || {});
     state.editingDate = null;
     renderMonth();
   }
@@ -343,11 +379,15 @@
     applyEditDay();
     closeDialog("dialog-edit-day");
   });
-  document.getElementById("edit-day-toll").addEventListener("click", (e) => {
+  document.getElementById("edit-day-tolls").addEventListener("click", (e) => {
     const btn = e.target.closest(".segmented-btn");
     if (!btn) return;
-    document.querySelectorAll("#edit-day-toll .segmented-btn").forEach((b) => b.classList.remove("selected"));
+    const group = btn.closest(".segmented");
+    const peageId = group.dataset.peageId;
+    group.querySelectorAll(".segmented-btn").forEach((b) => b.classList.remove("selected"));
     btn.classList.add("selected");
+    state.editingTolls = state.editingTolls || {};
+    state.editingTolls[peageId] = Number(btn.dataset.value);
   });
 
   // Pointer-based click / long-press on calendar cells (delegated on #pager)
@@ -556,8 +596,17 @@
                 const v = (cols[tollIdx] || "").trim();
                 tollCount = (v === "1" || v.toLowerCase() === "true") ? 1 : 0;
               }
-              tollCount = Math.min(2, Math.max(0, tollCount));
-              Storage.saveEntry(dateStr, status, ctype, note, tollCount);
+              tollCount = Math.max(0, tollCount);
+              let tolls = {};
+              if (tollCount > 0) {
+                let peages = Storage.getPeages();
+                if (peages.length === 0) {
+                  Storage.addPeage("Péage", 0);
+                  peages = Storage.getPeages();
+                }
+                tolls = { [peages[0].id]: tollCount };
+              }
+              Storage.saveEntry(dateStr, status, ctype, note, tolls);
             } catch (err) { /* skip bad line */ }
           }
           showToast("Import terminé");
@@ -611,9 +660,20 @@
     reader.readAsText(file);
   }
 
+  // Ajoute tollCount/tollMontant (agrégés tous péages confondus) sur une
+  // copie de chaque entrée — utilisé par l'export CSV et XLSX qui ne
+  // connaissent pas le détail par péage, seulement le total du jour.
+  function withTollTotals(entries) {
+    const peages = Storage.getPeages();
+    return entries.map((e) => {
+      const t = Storage.tollTotalsForEntry(e, peages);
+      return Object.assign({}, e, { tollCount: t.count, tollMontant: t.amount });
+    });
+  }
+
   function exportCsv() {
     const s = state.settings;
-    const entries = Storage.getEntriesArray().slice().sort((a, b) => a.date.localeCompare(b.date));
+    const entries = withTollTotals(Storage.getEntriesArray()).sort((a, b) => a.date.localeCompare(b.date));
     const headers = ["date", "status", "ctype"];
     if (s.exportNotes) headers.push("note");
     if (s.exportToll) { headers.push("peages"); headers.push("montant_peages"); }
@@ -624,7 +684,7 @@
       if (s.exportNotes) parts.push((e.note || "").replace(/,/g, " "));
       if (s.exportToll) {
         parts.push(String(e.tollCount));
-        parts.push(String(e.tollCount * s.tollAmount));
+        parts.push(String(e.tollMontant));
       }
       if (s.exportBase) parts.push(String(s.salaryBase));
       lines.push(parts.join(","));
@@ -639,7 +699,7 @@
   function xlsxConfig() {
     const s = state.settings;
     return {
-      entries: Storage.getEntriesArray(),
+      entries: withTollTotals(Storage.getEntriesArray()),
       monthlyBonuses: Storage.getBonuses(),
       salaryBase: s.salaryBase,
       rateJour: s.rateJour,
@@ -706,15 +766,28 @@
   // ---------------------------------------------------------------------
   // Settings dialog
   // ---------------------------------------------------------------------
+  function renderPeagesList() {
+    const peages = Storage.getPeages();
+    const container = document.getElementById("set-peages-list");
+    if (peages.length === 0) {
+      container.innerHTML = `<div class="info-row"><span class="muted">Aucun péage configuré</span></div>`;
+      return;
+    }
+    container.innerHTML = peages.map((p) => `
+      <div class="value-row" data-peage-id="${p.id}">
+        <span>${p.name}</span><span class="value">${formatEuro(p.amount)}</span>
+      </div>`).join("");
+  }
+
   function renderSettingsValues() {
     const s = state.settings;
     document.getElementById("set-salaryBase").textContent = formatEuro(s.salaryBase);
     document.getElementById("set-rateJour").textContent = formatEuro(s.rateJour);
     document.getElementById("set-rateNuit").textContent = formatEuro(s.rateNuit);
     document.getElementById("set-rateMn").textContent = formatEuro(s.rateMn);
-    document.getElementById("set-tollAmount").textContent = formatEuro(s.tollAmount);
     document.getElementById("set-annual-estimate-row").classList.toggle("hidden", !(s.salaryBase > 0));
     document.getElementById("set-annual-estimate").textContent = Math.round(s.salaryBase * 12) + " €";
+    renderPeagesList();
 
     document.getElementById("set-reminderEnabled").checked = s.reminderEnabled;
     document.getElementById("set-reminderHour-row").classList.toggle("hidden", !s.reminderEnabled);
@@ -736,12 +809,59 @@
     openDialog("dialog-settings");
   }
 
+  function openPeageEditDialog(peageId) {
+    const dialog = document.getElementById("dialog-peage-edit");
+    dialog.dataset.peageId = peageId || "";
+    const deleteBtn = document.getElementById("peage-edit-delete");
+    if (peageId) {
+      const p = Storage.getPeages().find((x) => x.id === peageId);
+      document.getElementById("peage-edit-title").textContent = "Modifier le péage";
+      document.getElementById("peage-edit-name").value = p ? p.name : "";
+      document.getElementById("peage-edit-amount").value = p ? p.amount : "";
+      deleteBtn.classList.remove("hidden");
+    } else {
+      document.getElementById("peage-edit-title").textContent = "Nouveau péage";
+      document.getElementById("peage-edit-name").value = "";
+      document.getElementById("peage-edit-amount").value = "";
+      deleteBtn.classList.add("hidden");
+    }
+    openDialog("dialog-peage-edit");
+  }
+
+  document.getElementById("peage-edit-save").addEventListener("click", () => {
+    const dialog = document.getElementById("dialog-peage-edit");
+    const name = document.getElementById("peage-edit-name").value.trim();
+    const amount = parseFloat(document.getElementById("peage-edit-amount").value) || 0;
+    if (!name) return showToast("Donne un nom à ce péage");
+    if (dialog.dataset.peageId) {
+      Storage.updatePeage(dialog.dataset.peageId, name, amount);
+    } else {
+      Storage.addPeage(name, amount);
+    }
+    closeDialog("dialog-peage-edit");
+    renderPeagesList();
+    renderAll();
+  });
+
+  document.getElementById("peage-edit-delete").addEventListener("click", () => {
+    const dialog = document.getElementById("dialog-peage-edit");
+    if (dialog.dataset.peageId && confirm("Supprimer ce péage ?")) {
+      Storage.deletePeage(dialog.dataset.peageId);
+      closeDialog("dialog-peage-edit");
+      renderPeagesList();
+      renderAll();
+    }
+  });
+
   document.getElementById("dialog-settings").addEventListener("click", (e) => {
     const row = e.target.closest(".value-row[data-edit]");
     if (row && row.id !== "set-palette-row") {
       openGenericEdit(row.dataset.edit, row.dataset.label, row.dataset.type);
     }
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
+    if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
+    const peageRow = e.target.closest("#set-peages-list .value-row[data-peage-id]");
+    if (peageRow) openPeageEditDialog(peageRow.dataset.peageId);
     if (e.target.closest('[data-action="export-json"]')) exportJsonBackup();
     if (e.target.closest('[data-action="import-json"]')) document.getElementById("json-file-input").click();
     if (e.target.closest("#btn-reset-data")) {
@@ -838,8 +958,9 @@
     const today = todayStr();
     if (localStorage.getItem("myshift.lastReminderDate") === today) return;
     localStorage.setItem("myshift.lastReminderDate", today);
+    if (Storage.getEntry(today)) return; // déjà renseigné, pas besoin de rappel
     new Notification("MyShift", {
-      body: "N'oubliez pas de renseigner votre poste du jour.",
+      body: "Ton poste d'aujourd'hui n'est pas encore renseigné.",
       icon: "icons/icon-192.png"
     });
   }
