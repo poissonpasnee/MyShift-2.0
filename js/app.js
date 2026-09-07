@@ -161,13 +161,15 @@
   }
 
   const WEEKDAY_ABBR = ["DI", "LU", "MA", "ME", "JE", "VE", "SA"];
-  function renderWeekHeader(startDow, showWeek) {
+  function renderWeekHeader(startDow, showWeek, paired) {
     const rowClass = showWeek ? "week-header with-week-numbers" : "week-header";
     let cells = showWeek ? `<div class="week-header-cell"></div>` : "";
     for (let i = 0; i < 7; i++) {
       const dow = (startDow + i) % 7;
-      const nextDow = (dow + 1) % 7;
-      cells += `<div class="week-header-cell">${WEEKDAY_ABBR[dow]}/${WEEKDAY_ABBR[nextDow]}</div>`;
+      const label = paired
+        ? `${WEEKDAY_ABBR[dow]}/${WEEKDAY_ABBR[(dow + 1) % 7]}`
+        : WEEKDAY_ABBR[dow];
+      cells += `<div class="week-header-cell">${label}</div>`;
     }
     return `<div class="${rowClass}">${cells}</div>`;
   }
@@ -182,7 +184,7 @@
 
     const showWeek = state.settings.showWeekNumbers;
     const startDow = state.settings.weekStartSunday ? 0 : 1;
-    let html = renderWeekHeader(startDow, showWeek);
+    let html = renderWeekHeader(startDow, showWeek, state.settings.weekStartSunday);
     rows.forEach((row) => {
       const rowClass = showWeek ? "calendar-row with-week-numbers" : "calendar-row";
       const weekCell = showWeek ? `<div class="week-number">${isoWeekNumber(row[0].date)}</div>` : "";
