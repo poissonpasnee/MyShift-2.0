@@ -101,10 +101,21 @@
     const firstDow = state.settings.weekStartSunday
       ? first.getDay()
       : (first.getDay() + 6) % 7;
+    const prevYm = ymAdd(ym, -1);
+    const prevCount = daysInMonth(prevYm.y, prevYm.m);
     const days = [];
-    for (let i = 0; i < firstDow; i++) days.push(null);
-    for (let d = 1; d <= daysInMonth(ym.y, ym.m); d++) days.push(dstr(ym.y, ym.m, d));
-    while (days.length % 7 !== 0) days.push(null);
+    for (let i = firstDow - 1; i >= 0; i--) {
+      days.push({ date: dstr(prevYm.y, prevYm.m, prevCount - i), otherMonth: true });
+    }
+    for (let d = 1; d <= daysInMonth(ym.y, ym.m); d++) {
+      days.push({ date: dstr(ym.y, ym.m, d), otherMonth: false });
+    }
+    const nextYm = ymAdd(ym, 1);
+    let nextDay = 1;
+    while (days.length % 7 !== 0) {
+      days.push({ date: dstr(nextYm.y, nextYm.m, nextDay), otherMonth: true });
+      nextDay++;
+    }
     return days;
   }
 
@@ -115,10 +126,10 @@
     return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   }
 
-  function dayCellHtml(dateStr, entriesMap, colors, peages) {
-    if (dateStr === null) return `<div class="day-cell empty"></div>`;
+  function dayCellHtml(cell, entriesMap, colors, peages) {
+    const dateStr = cell.date;
     const entry = entriesMap[dateStr];
-    const isSelected = dateStr === state.selectedDate;
+    const isSelected = !cell.otherMonth && dateStr === state.selectedDate;
     const isToday = dateStr === todayStr();
     let bg, textColor;
     if (entry) {
@@ -131,6 +142,7 @@
     const classes = ["day-cell"];
     if (isSelected) classes.push("selected");
     if (isToday) classes.push("today");
+    if (cell.otherMonth) classes.push("other-month");
     const dayNum = Number(dateStr.split("-")[2]);
     let dots = "";
     if (entry && entry.note) dots += `<span class="day-note-dot" style="background:${textColor}"></span>`;
@@ -141,7 +153,8 @@
       }
     }
     const style = bg ? `background:${bg};color:${textColor};` : `color:${textColor};`;
-    return `<button type="button" class="${classes.join(" ")}" style="${style}" data-date="${dateStr}">
+    const dataAttr = cell.otherMonth ? "" : `data-date="${dateStr}"`;
+    return `<button type="button" class="${classes.join(" ")}" style="${style}" ${dataAttr}>
       <span>${dayNum}</span>
       <span class="day-dots">${dots}</span>
     </button>`;
@@ -172,11 +185,7 @@
     let html = renderWeekHeader(startDow, showWeek);
     rows.forEach((row) => {
       const rowClass = showWeek ? "calendar-row with-week-numbers" : "calendar-row";
-      let weekCell = "";
-      if (showWeek) {
-        const firstReal = row.find((d) => d !== null);
-        weekCell = `<div class="week-number">${firstReal ? isoWeekNumber(firstReal) : ""}</div>`;
-      }
+      const weekCell = showWeek ? `<div class="week-number">${isoWeekNumber(row[0].date)}</div>` : "";
       html += `<div class="${rowClass}">${weekCell}${row.map((d) => dayCellHtml(d, entriesMap, colors, peages)).join("")}</div>`;
     });
     return html;
