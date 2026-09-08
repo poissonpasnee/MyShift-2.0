@@ -926,6 +926,7 @@
     document.getElementById("set-congesLabel").textContent = s.congesLabel;
 
     document.getElementById("set-autoBackupEnabled").checked = !!s.autoBackupEnabled;
+    document.getElementById("set-includeRatesInBackup").checked = s.includeRatesInBackup !== false;
   }
 
   function renderSettingsOverview() {
@@ -1048,6 +1049,10 @@
     if (e.target.id === "set-autoBackupEnabled") {
       state.settings = Storage.setSetting("autoBackupEnabled", e.target.checked);
       if (e.target.checked) maybeRunAutoBackup();
+      return;
+    }
+    if (e.target.id === "set-includeRatesInBackup") {
+      state.settings = Storage.setSetting("includeRatesInBackup", e.target.checked);
       return;
     }
     const map = {

@@ -24,7 +24,8 @@
     showWeekNumbers: false,
     colorPalette: "amethyste",
     darkBgVariant: "ardoise",
-    reposWeekdays: []
+    reposWeekdays: [],
+    includeRatesInBackup: true
   };
 
   function readJson(key, fallback) {
@@ -216,16 +217,35 @@
   // Full backup as a single JSON object — for manual export/import since
   // this app is local-only (no account, no cloud sync).
   function exportAll() {
+    const settings = getSettings();
+    const includeRates = settings.includeRatesInBackup !== false;
+    const exportedSettings = includeRates
+      ? settings
+      : Object.assign({}, settings, {
+          salaryBase: null, rateJour: null, rateNuit: null, rateMn: null, tollAmount: null
+        });
+    const peages = getPeages();
+    const exportedPeages = includeRates
+      ? peages
+      : peages.map((p) => ({ id: p.id, name: p.name, history: [] }));
     return {
       app: "myshift",
       version: 2,
       exportedAt: new Date().toISOString(),
+      includesRates: includeRates,
       entries: getEntriesMap(),
-      bonuses: getBonuses(),
-      settings: getSettings(),
-      peages: getPeages()
+      bonuses: includeRates ? getBonuses() : {},
+      settings: exportedSettings,
+      peages: exportedPeages
     };
   }
+
+  // Point d'entrée pour le code natif Android (WebView bridge) : renvoie
+  // la sauvegarde complète sous forme de texte JSON, prête à écrire dans
+  // un fichier. Respecte le réglage "Inclure salaire et tarifs".
+  global.getMyShiftBackupJson = function () {
+    return JSON.stringify(exportAll(), null, 2);
+  };
 
   function importAll(data) {
     if (!data || typeof data !== "object") throw new Error("Fichier invalide.");

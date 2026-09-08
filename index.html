@@ -373,7 +373,12 @@
             <span>Sauvegarde automatique quotidienne</span>
             <label class="switch"><input type="checkbox" id="set-autoBackupEnabled"><span class="slider"></span></label>
           </div>
+          <div class="switch-row">
+            <span>Inclure salaire et tarifs dans les sauvegardes</span>
+            <label class="switch"><input type="checkbox" id="set-includeRatesInBackup"><span class="slider"></span></label>
+          </div>
         </div>
+        <p class="hint">Si désactivé, tes sauvegardes (auto ou manuelle) contiennent tes postes et péages, mais pas ton salaire de base ni tes taux — utile si tu partages ou stockes la sauvegarde ailleurs.</p>
         <p class="hint">Un fichier de sauvegarde .json sera téléchargé automatiquement une fois par jour dans ton dossier Téléchargements.</p>
         <div class="settings-group">
           <div class="value-row" data-action="export-json">
