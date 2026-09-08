@@ -206,41 +206,6 @@
     return { count, amount };
   }
 
-  // -----------------------------------------------------------------
-  // Dossier de sauvegarde automatique locale (File System Access API).
-  // Le FileSystemDirectoryHandle n'est pas sérialisable en JSON, donc on
-  // le stocke à part dans IndexedDB (structured clone), pas dans
-  // localStorage comme le reste.
-  // -----------------------------------------------------------------
-  function openHandleDb() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open("myshift-handles", 1);
-      req.onupgradeneeded = () => req.result.createObjectStore("handles");
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
-  async function saveDirHandle(handle) {
-    const db = await openHandleDb();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction("handles", "readwrite");
-      tx.objectStore("handles").put(handle, "backupDir");
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  }
-
-  async function getDirHandle() {
-    const db = await openHandleDb();
-    return new Promise((resolve, reject) => {
-      const tx = db.transaction("handles", "readonly");
-      const req = tx.objectStore("handles").get("backupDir");
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
-    });
-  }
-
   function resetAll() {
     localStorage.removeItem(KEY_ENTRIES);
     localStorage.removeItem(KEY_BONUSES);
@@ -291,8 +256,6 @@
     setPeageAmount,
     peageAmountAt,
     deletePeage,
-    tollTotalsForEntry,
-    saveDirHandle,
-    getDirHandle
+    tollTotalsForEntry
   };
 })(window);

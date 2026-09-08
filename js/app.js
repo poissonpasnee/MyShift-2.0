@@ -652,45 +652,13 @@
     setTimeout(() => URL.revokeObjectURL(url), 4000);
   }
 
-  async function chooseBackupFolder() {
-    try {
-      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
-      await Storage.saveDirHandle(handle);
-      state.settings = Storage.setSetting("autoBackupFolderName", handle.name);
-      state.settings = Storage.setSetting("autoBackupEnabled", true);
-      renderSettingsValues();
-      showToast("Dossier de sauvegarde choisi");
-    } catch (e) { /* annulé par l'utilisateur */ }
-  }
-
-  async function enableAutoBackup() {
-    const existing = await Storage.getDirHandle();
-    if (!existing) {
-      await chooseBackupFolder();
-    } else {
-      state.settings = Storage.setSetting("autoBackupEnabled", true);
-      renderSettingsValues();
-    }
-  }
-
-  async function writeAutoBackup() {
-    try {
-      const handle = await Storage.getDirHandle();
-      if (!handle) return;
-      const perm = await handle.queryPermission({ mode: "readwrite" });
-      if (perm !== "granted") return; // pas de prompt silencieux sans geste utilisateur
-      const fileHandle = await handle.getFileHandle("myshift-sauvegarde-auto.json", { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(JSON.stringify(Storage.exportAll(), null, 2));
-      await writable.close();
-    } catch (e) { /* dossier déplacé/supprimé — on retentera demain */ }
-  }
-
   async function maybeRunAutoBackup() {
     if (!state.settings.autoBackupEnabled) return;
     const today = todayStr();
     if (localStorage.getItem("myshift.lastAutoBackupDate") === today) return;
-    await writeAutoBackup();
+    const data = Storage.exportAll();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+    downloadBlob(blob, `myshift-sauvegarde-auto-${today}.json`);
     localStorage.setItem("myshift.lastAutoBackupDate", today);
   }
 
@@ -939,13 +907,7 @@
     document.getElementById("set-exportBase").checked = s.exportBase;
     document.getElementById("set-congesLabel").textContent = s.congesLabel;
 
-    const autoBackupSupported = "showDirectoryPicker" in window;
-    document.getElementById("autoBackup-unsupported-hint").classList.toggle("hidden", autoBackupSupported);
-    document.getElementById("set-autoBackupEnabled").closest(".settings-group").classList.toggle("hidden", !autoBackupSupported);
-    if (autoBackupSupported) {
-      document.getElementById("set-autoBackupEnabled").checked = !!s.autoBackupEnabled;
-      document.getElementById("set-backup-folder-name").textContent = s.autoBackupFolderName || "Non choisi";
-    }
+    document.getElementById("set-autoBackupEnabled").checked = !!s.autoBackupEnabled;
   }
 
   function openSettingsDialog() {
@@ -1020,7 +982,6 @@
     }
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
     if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
-    if (e.target.closest("#btn-choose-backup-folder")) chooseBackupFolder();
     const dowBtn = e.target.closest("#set-repos-weekdays .weekday-btn");
     if (dowBtn) {
       const dow = Number(dowBtn.dataset.dow);
@@ -1049,9 +1010,8 @@
 
   document.getElementById("dialog-settings").addEventListener("change", (e) => {
     if (e.target.id === "set-autoBackupEnabled") {
-      if (e.target.checked) enableAutoBackup(); else {
-        state.settings = Storage.setSetting("autoBackupEnabled", false);
-      }
+      state.settings = Storage.setSetting("autoBackupEnabled", e.target.checked);
+      if (e.target.checked) maybeRunAutoBackup();
       return;
     }
     const map = {
