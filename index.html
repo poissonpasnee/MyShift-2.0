@@ -230,26 +230,7 @@
             <span class="muted">Estimation base annuelle</span><span class="value accent" id="set-annual-estimate"></span>
           </div>
         </div>
-        <div class="settings-group" style="margin-top:8px">
-          <div class="value-row" id="btn-import-payslip">
-            <span class="accent">📄 Importer une fiche de paie (PDF)</span>
-          </div>
-        </div>
-        <p class="hint">Calcule tes taux Jour/Nuit réels à partir des primes de ta fiche de paie et de ton calendrier du même mois. Tout se passe sur ton téléphone, le PDF n'est jamais envoyé nulle part.</p>
-        <input type="file" id="payslip-file-input" accept="application/pdf" hidden>
         <div style="height:32px"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Payslip analysis result dialog (must come after dialog-settings-remuneration) -->
-  <div id="dialog-payslip-result" class="dialog hidden" role="dialog" aria-modal="true">
-    <div class="dialog-box">
-      <h2>Fiche de paie analysée</h2>
-      <div id="payslip-result-content" style="max-height:50vh;overflow-y:auto"></div>
-      <div class="dialog-actions">
-        <button class="btn-text" data-action="close-dialog">Annuler</button>
-        <button class="btn-primary hidden" id="payslip-apply-btn">Appliquer ces taux</button>
       </div>
     </div>
   </div>
@@ -490,11 +471,9 @@
 
 </div>
 
-<script src="js/vendor/pdf.min.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/palettes.js"></script>
 <script src="js/xlsx-export.js"></script>
-<script src="js/payslip.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
