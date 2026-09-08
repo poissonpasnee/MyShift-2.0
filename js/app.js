@@ -126,6 +126,16 @@
     return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
   }
 
+  function mixWithSurfaceVariant(hex, ratio) {
+    const base = state.settings.darkTheme ? { r: 0x28, g: 0x35, b: 0x48 } : { r: 0xE7, g: 0xE0, b: 0xEC };
+    const h = hex.replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+    const mr = Math.round(r * ratio + base.r * (1 - ratio));
+    const mg = Math.round(g * ratio + base.g * (1 - ratio));
+    const mb = Math.round(b * ratio + base.b * (1 - ratio));
+    return `rgb(${mr},${mg},${mb})`;
+  }
+
   function dayCellHtml(cell, entriesMap, colors, peages) {
     const dateStr = cell.date;
     const entry = entriesMap[dateStr];
@@ -134,7 +144,7 @@
     let bg, textColor;
     if (entry) {
       const vivid = colors[entry.status];
-      bg = `color-mix(in srgb, ${vivid} 24%, var(--surface-variant))`;
+      bg = mixWithSurfaceVariant(vivid, 0.24);
       textColor = vivid;
     } else {
       bg = null;
