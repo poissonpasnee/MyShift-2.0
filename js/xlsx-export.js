@@ -154,7 +154,7 @@
   function monthStats(y, m, entries, config, bonus) {
     const tollCount = entries.reduce((s, e) => s + (e.tollCount || 0), 0);
     const tollMontant = entries.reduce((s, e) => s + (e.tollMontant || 0), 0);
-    const shiftPrimes = entries.reduce((s, e) => s + rateFor(e.status, config) + (e.mnNuitExtra || 0), 0);
+    const shiftPrimes = entries.reduce((s, e) => s + rateFor(e.status, config), 0);
     const salary = config.salaryBase + shiftPrimes + tollMontant + bonus;
     const count = (status) => entries.filter((e) => e.status === status).length;
     return {
@@ -171,11 +171,11 @@
       return {
         dayOfWeek: dayFr(e.date),
         date: e.date,
-        type: statusLabel(e.status) + (e.combinedNuit ? " + Nuit" : ""),
+        type: statusLabel(e.status),
         status: e.status,
         label: e.ctype || "",
         note: e.note || "",
-        salary: rateFor(e.status, config) + tollEarned + (e.mnNuitExtra || 0)
+        salary: rateFor(e.status, config) + tollEarned
       };
     });
   }

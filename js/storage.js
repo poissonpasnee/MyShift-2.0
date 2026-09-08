@@ -78,15 +78,14 @@
     return migrateEntryTolls(getEntriesMap()[date] || null);
   }
 
-  function saveEntry(date, status, ctype, note, tolls, combinedNuit) {
+  function saveEntry(date, status, ctype, note, tolls) {
     const map = getEntriesMap();
     map[date] = {
       date: date,
       status: status,
       ctype: ctype || null,
       note: note || null,
-      tolls: tolls || {},
-      combinedNuit: status === "mn" ? !!combinedNuit : false
+      tolls: tolls || {}
     };
     writeJson(KEY_ENTRIES, map);
   }

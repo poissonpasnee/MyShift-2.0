@@ -87,7 +87,6 @@
     const stats = { jour: 0, nuit: 0, mn: 0, repos: 0, conges: 0 };
     entries.forEach((e) => {
       total += rateFor(e.status);
-      if (e.status === "mn" && e.combinedNuit) total += state.settings.rateNuit;
       const t = Storage.tollTotalsForEntry(e, peages);
       toll += t.amount;
       if (stats[e.status] !== undefined) stats[e.status]++;
@@ -144,7 +143,6 @@
     const isSelected = !cell.otherMonth && dateStr === state.selectedDate;
     const isToday = dateStr === todayStr();
     let bg, textColor;
-    const isSplit = entry && entry.status === "mn" && entry.combinedNuit;
     if (entry) {
       const vivid = colors[entry.status];
       bg = mixWithSurfaceVariant(vivid, 0.24);
@@ -152,11 +150,6 @@
     } else {
       bg = null;
       textColor = "var(--on-surface)";
-    }
-    let splitOverlay = "";
-    if (isSplit) {
-      const nuitBg = mixWithSurfaceVariant(colors.nuit, 0.24);
-      splitOverlay = `<span class="day-cell-split" style="background:${nuitBg}"></span>`;
     }
     const classes = ["day-cell"];
     if (isSelected) classes.push("selected");
@@ -174,9 +167,8 @@
     const style = bg ? `background:${bg};color:${textColor};` : `color:${textColor};`;
     const dataAttr = cell.otherMonth ? "" : `data-date="${dateStr}"`;
     return `<button type="button" class="${classes.join(" ")}" style="${style}" ${dataAttr}>
-      ${splitOverlay}
-      <span style="position:relative">${dayNum}</span>
-      <span class="day-dots" style="position:relative">${dots}</span>
+      <span>${dayNum}</span>
+      <span class="day-dots">${dots}</span>
     </button>`;
   }
 
@@ -353,11 +345,7 @@
   // ---------------------------------------------------------------------
   function applyPaint(dateStr, status) {
     const existing = Storage.getEntry(dateStr);
-    let combinedNuit = false;
-    if (status === "mn") {
-      combinedNuit = confirm("Ajouter aussi une Nuit sur ce même jour ?");
-    }
-    Storage.saveEntry(dateStr, status, existing ? existing.ctype : null, existing ? existing.note : null, existing ? existing.tolls : {}, combinedNuit);
+    Storage.saveEntry(dateStr, status, existing ? existing.ctype : null, existing ? existing.note : null, existing ? existing.tolls : {});
   }
 
   function handleDayClick(dateStr) {
@@ -628,7 +616,6 @@
           const header = lines[0].split(",").map((s) => s.trim().toLowerCase());
           const peagesIdx = header.indexOf("peages");
           const tollIdx = header.indexOf("toll");
-          const nuitCombIdx = header.indexOf("nuit_combinee");
           for (const line of lines.slice(1)) {
             try {
               const cols = line.split(",");
@@ -654,8 +641,7 @@
                 }
                 tolls = { [peages[0].id]: tollCount };
               }
-              const combinedNuit = nuitCombIdx >= 0 && (cols[nuitCombIdx] || "").trim() === "1";
-              Storage.saveEntry(dateStr, status, ctype, note, tolls, combinedNuit);
+              Storage.saveEntry(dateStr, status, ctype, note, tolls);
             } catch (err) { /* skip bad line */ }
           }
           showToast("Import terminé");
@@ -726,8 +712,7 @@
     const peages = Storage.getPeages();
     return entries.map((e) => {
       const t = Storage.tollTotalsForEntry(e, peages);
-      const mnNuitExtra = (e.status === "mn" && e.combinedNuit) ? state.settings.rateNuit : 0;
-      return Object.assign({}, e, { tollCount: t.count, tollMontant: t.amount, mnNuitExtra });
+      return Object.assign({}, e, { tollCount: t.count, tollMontant: t.amount });
     });
   }
 
@@ -737,7 +722,6 @@
     const headers = ["date", "status", "ctype"];
     if (s.exportNotes) headers.push("note");
     if (s.exportToll) { headers.push("peages"); headers.push("montant_peages"); }
-    headers.push("nuit_combinee");
     if (s.exportBase) headers.push("salaryBase");
     const lines = [headers.join(",")];
     entries.forEach((e) => {
@@ -747,7 +731,6 @@
         parts.push(String(e.tollCount));
         parts.push(String(e.tollMontant));
       }
-      parts.push(e.combinedNuit ? "1" : "0");
       if (s.exportBase) parts.push(String(s.salaryBase));
       lines.push(parts.join(","));
     });
