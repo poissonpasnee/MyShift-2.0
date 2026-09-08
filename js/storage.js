@@ -247,6 +247,14 @@
     return JSON.stringify(exportAll(), null, 2);
   };
 
+  // Appelé côté natif Android après que l'utilisateur a choisi un dossier
+  // (Storage Access Framework), pour afficher son nom dans les réglages.
+  global.onBackupFolderChosen = function (folderName) {
+    setSetting("nativeBackupFolderName", folderName);
+    const el = document.getElementById("set-native-backup-folder");
+    if (el) el.textContent = folderName;
+  };
+
   function importAll(data) {
     if (!data || typeof data !== "object") throw new Error("Fichier invalide.");
     if (data.entries) writeJson(KEY_ENTRIES, data.entries);

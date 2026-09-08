@@ -927,6 +927,11 @@
 
     document.getElementById("set-autoBackupEnabled").checked = !!s.autoBackupEnabled;
     document.getElementById("set-includeRatesInBackup").checked = s.includeRatesInBackup !== false;
+    const nativeBridge = window.AndroidBridge && window.AndroidBridge.chooseBackupFolder;
+    document.getElementById("btn-choose-backup-folder-native").classList.toggle("hidden", !nativeBridge);
+    if (nativeBridge) {
+      document.getElementById("set-native-backup-folder").textContent = s.nativeBackupFolderName || "Non choisi";
+    }
   }
 
   function renderSettingsOverview() {
@@ -1019,6 +1024,11 @@
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
     if (e.target.closest("#set-bg-row")) openBgDialog();
     if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
+    if (e.target.closest("#btn-choose-backup-folder-native")) {
+      if (window.AndroidBridge && window.AndroidBridge.chooseBackupFolder) {
+        window.AndroidBridge.chooseBackupFolder();
+      }
+    }
     const dowBtn = e.target.closest("#set-repos-weekdays .weekday-btn");
     if (dowBtn) {
       const dow = Number(dowBtn.dataset.dow);
