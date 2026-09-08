@@ -566,6 +566,10 @@
       case "close-dialog":
         closeAllDialogs();
         break;
+      case "close-settings-sub":
+        btn.closest(".dialog").classList.add("hidden");
+        renderSettingsOverview();
+        break;
       case "open-settings":
         closeDrawer();
         openSettingsDialog();
@@ -924,10 +928,27 @@
     document.getElementById("set-autoBackupEnabled").checked = !!s.autoBackupEnabled;
   }
 
+  function renderSettingsOverview() {
+    const s = state.settings;
+    const peages = Storage.getPeages();
+    document.getElementById("cat-value-peages").textContent =
+      peages.length === 0 ? "Aucun" : peages.length + (peages.length > 1 ? " péages" : " péage");
+    document.getElementById("cat-value-apparence").textContent =
+      Palettes.PALETTES.find((p) => p.id === s.colorPalette).label;
+    document.getElementById("cat-value-notifications").textContent =
+      s.reminderEnabled ? s.reminderHour : "Désactivées";
+  }
+
   function openSettingsDialog() {
     renderSettingsValues();
+    renderSettingsOverview();
     openDialog("dialog-settings");
   }
+
+  document.getElementById("dialog-settings").addEventListener("click", (e) => {
+    const catRow = e.target.closest(".settings-cat-row[data-open-settings]");
+    if (catRow) openDialog("dialog-settings-" + catRow.dataset.openSettings);
+  });
 
   function renderPeageHistory(peage) {
     const container = document.getElementById("peage-edit-history");

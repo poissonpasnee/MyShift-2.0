@@ -164,8 +164,55 @@
         <h2>Paramètres</h2>
       </header>
       <div class="settings-content">
+        <div class="settings-group">
+          <div class="value-row settings-cat-row" data-open-settings="remuneration">
+            <span class="cat-icon" style="background:#6C5CE7">💰</span>
+            <span class="cat-label">Rémunération</span>
+            <span class="value"></span>
+          </div>
+          <div class="value-row settings-cat-row" data-open-settings="peages">
+            <span class="cat-icon" style="background:#3D7BFA">🛣️</span>
+            <span class="cat-label">Péages</span>
+            <span class="value" id="cat-value-peages"></span>
+          </div>
+          <div class="value-row settings-cat-row" data-open-settings="apparence">
+            <span class="cat-icon" style="background:#22C55E">🎨</span>
+            <span class="cat-label">Apparence</span>
+            <span class="value" id="cat-value-apparence"></span>
+          </div>
+          <div class="value-row settings-cat-row" data-open-settings="notifications">
+            <span class="cat-icon" style="background:#FF8A5B">🔔</span>
+            <span class="cat-label">Notifications</span>
+            <span class="value" id="cat-value-notifications"></span>
+          </div>
+          <div class="value-row settings-cat-row" data-open-settings="calendrier">
+            <span class="cat-icon" style="background:#8FA07C">📅</span>
+            <span class="cat-label">Calendrier</span>
+            <span class="value"></span>
+          </div>
+          <div class="value-row settings-cat-row" data-open-settings="donnees">
+            <span class="cat-icon" style="background:#E1306C">📦</span>
+            <span class="cat-label">Données et sauvegarde</span>
+            <span class="value"></span>
+          </div>
+        </div>
 
-        <h3 class="section-header">Rémunération</h3>
+        <!-- File input for JSON backup import (hidden) -->
+        <input type="file" id="json-file-input" accept=".json,application/json" hidden>
+
+        <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-screen: Rémunération -->
+  <div id="dialog-settings-remuneration" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-settings-sub">‹</button>
+        <h2>Rémunération</h2>
+      </header>
+      <div class="settings-content">
         <div class="settings-group">
           <div class="value-row" data-edit="salaryBase" data-label="Salaire de base (€)" data-type="number">
             <span>Salaire de base</span><span class="value" id="set-salaryBase"></span>
@@ -183,27 +230,38 @@
             <span class="muted">Estimation base annuelle</span><span class="value accent" id="set-annual-estimate"></span>
           </div>
         </div>
+        <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
 
-        <h3 class="section-header">Péages</h3>
+  <!-- Sub-screen: Péages -->
+  <div id="dialog-settings-peages" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-settings-sub">‹</button>
+        <h2>Péages</h2>
+      </header>
+      <div class="settings-content">
         <div class="settings-group" id="set-peages-list"></div>
         <div class="settings-group" style="margin-top:8px">
           <div class="value-row" id="btn-add-peage">
             <span class="accent">+ Ajouter un péage</span>
           </div>
         </div>
+        <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
 
-        <h3 class="section-header">Notifications &amp; rappels</h3>
-        <div class="settings-group">
-          <div class="switch-row">
-            <span>Activer les rappels quotidiens</span>
-            <label class="switch"><input type="checkbox" id="set-reminderEnabled"><span class="slider"></span></label>
-          </div>
-          <div class="value-row hidden" id="set-reminderHour-row" data-edit="reminderHour" data-label="Heure du rappel (HH:MM)" data-type="text">
-            <span>Heure du rappel</span><span class="value" id="set-reminderHour"></span>
-          </div>
-        </div>
-
-        <h3 class="section-header">Apparence</h3>
+  <!-- Sub-screen: Apparence -->
+  <div id="dialog-settings-apparence" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-settings-sub">‹</button>
+        <h2>Apparence</h2>
+      </header>
+      <div class="settings-content">
         <div class="settings-group">
           <div class="switch-row">
             <span>Mode sombre</span>
@@ -215,6 +273,43 @@
           <div class="value-row" id="set-bg-row">
             <span>Fond</span><span class="value" id="set-darkBgVariant"></span>
           </div>
+        </div>
+        <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-screen: Notifications -->
+  <div id="dialog-settings-notifications" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-settings-sub">‹</button>
+        <h2>Notifications</h2>
+      </header>
+      <div class="settings-content">
+        <div class="settings-group">
+          <div class="switch-row">
+            <span>Activer les rappels quotidiens</span>
+            <label class="switch"><input type="checkbox" id="set-reminderEnabled"><span class="slider"></span></label>
+          </div>
+          <div class="value-row hidden" id="set-reminderHour-row" data-edit="reminderHour" data-label="Heure du rappel (HH:MM)" data-type="text">
+            <span>Heure du rappel</span><span class="value" id="set-reminderHour"></span>
+          </div>
+        </div>
+        <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sub-screen: Calendrier -->
+  <div id="dialog-settings-calendrier" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-settings-sub">‹</button>
+        <h2>Calendrier</h2>
+      </header>
+      <div class="settings-content">
+        <div class="settings-group">
           <div class="switch-row">
             <span>Numéros de semaine dans le calendrier</span>
             <label class="switch"><input type="checkbox" id="set-showWeekNumbers"><span class="slider"></span></label>
@@ -240,7 +335,19 @@
             </div>
           </div>
         </div>
+        <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
 
+  <!-- Sub-screen: Données -->
+  <div id="dialog-settings-donnees" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-settings-sub">‹</button>
+        <h2>Données et sauvegarde</h2>
+      </header>
+      <div class="settings-content">
         <h3 class="section-header">Export CSV</h3>
         <div class="settings-group">
           <div class="switch-row">
@@ -260,7 +367,7 @@
           </div>
         </div>
 
-        <h3 class="section-header">Données</h3>
+        <h3 class="section-header">Sauvegarde</h3>
         <div class="settings-group">
           <div class="switch-row">
             <span>Sauvegarde automatique quotidienne</span>
@@ -278,10 +385,6 @@
         </div>
         <p class="hint">Utile avant un changement de téléphone ou pour garder une copie de secours : tes données sont uniquement stockées sur cet appareil.</p>
         <button class="danger-row" id="btn-reset-data">Réinitialiser toutes les données locales</button>
-
-        <!-- File input for JSON backup import (hidden) -->
-        <input type="file" id="json-file-input" accept=".json,application/json" hidden>
-
         <div style="height:32px"></div>
       </div>
     </div>
