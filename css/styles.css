@@ -171,8 +171,8 @@ button, input {
 }
 
 .day-cell {
-  aspect-ratio: 0.9;
-  border-radius: 6px;
+  aspect-ratio: 0.95;
+  border-radius: 14px;
   border: none;
   display: flex;
   flex-direction: column;
