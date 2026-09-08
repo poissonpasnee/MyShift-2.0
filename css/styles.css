@@ -590,6 +590,58 @@ button, input {
   border-bottom: 1px solid var(--outline-variant);
   border-bottom-color: color-mix(in srgb, var(--outline-variant) 60%, transparent);
 }
+.weekday-picker {
+  display: flex;
+  gap: 6px;
+}
+.weekday-btn {
+  flex: 1;
+  height: 40px;
+  border-radius: 10px;
+  border: none;
+  background: var(--surface-variant);
+  color: var(--on-surface-variant);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.weekday-btn.selected { background: var(--color-primary); color: var(--color-on-primary); font-weight: 600; }
+
+.stat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+.stat-bar-label {
+  width: 34px;
+  font-size: 12px;
+  color: var(--on-surface-variant);
+  flex-shrink: 0;
+}
+.stat-bar-track {
+  flex: 1;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  background: var(--surface-variant);
+}
+.stat-bar-seg { height: 100%; }
+.stat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  margin-top: 20px;
+}
+.stat-table th, .stat-table td {
+  text-align: right;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--outline-variant);
+}
+.stat-table th:first-child, .stat-table td:first-child { text-align: left; }
+.stat-table th { color: var(--on-surface-variant); font-weight: 600; }
+.stat-table tfoot td { font-weight: 700; color: var(--color-primary); }
 .value-row { cursor: pointer; }
 .value-row:active, .switch-row:active { background: var(--surface-variant); }
 .value-row .value { color: var(--on-surface-variant); }
@@ -598,8 +650,8 @@ button, input {
 .switch {
   position: relative;
   display: inline-block;
-  width: 42px;
-  height: 24px;
+  width: 56px;
+  height: 32px;
   flex-shrink: 0;
 }
 .switch input { opacity: 0; width: 0; height: 0; }
@@ -614,8 +666,8 @@ button, input {
 .slider::before {
   content: "";
   position: absolute;
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
   left: 3px;
   top: 3px;
   background: white;
@@ -623,7 +675,7 @@ button, input {
   transition: 0.15s;
 }
 .switch input:checked + .slider { background: var(--color-primary); }
-.switch input:checked + .slider::before { transform: translateX(18px); }
+.switch input:checked + .slider::before { transform: translateX(24px); }
 
 .danger-row {
   width: 100%;

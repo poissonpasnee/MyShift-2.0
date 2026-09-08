@@ -22,7 +22,8 @@
     reminderEnabled: true,
     reminderHour: "20:00",
     showWeekNumbers: false,
-    colorPalette: "amethyste"
+    colorPalette: "amethyste",
+    reposWeekdays: []
   };
 
   function readJson(key, fallback) {
@@ -109,22 +110,29 @@
   }
 
   // -----------------------------------------------------------------
-  // Péages multiples — chacun a un nom et un montant qui lui est propre.
-  // Migration douce : si aucune liste n'existe encore mais qu'un ancien
-  // montant unique (tollAmount) était configuré, on le reprend comme
-  // premier péage pour ne rien perdre.
+  // Péages multiples — chacun a un nom et un historique de montants
+  // datés (un changement de tarif n'affecte que les jours à partir de
+  // sa date d'effet, les jours passés gardent l'ancien montant).
+  // Migration douce : ancien format {id,name,amount} -> {id,name,history}.
+  // Migration douce v1 : si aucune liste n'existe encore mais qu'un ancien
+  // montant unique (tollAmount) était configuré, on le reprend.
   // -----------------------------------------------------------------
+  function migratePeage(p) {
+    if (p.history) return p;
+    return { id: p.id, name: p.name, history: [{ from: "2000-01-01", amount: p.amount || 0 }] };
+  }
+
   function getPeages() {
     const raw = localStorage.getItem(KEY_PEAGES);
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed)) return parsed.map(migratePeage);
       } catch (e) { /* fallthrough to migration */ }
     }
     const legacyAmount = getSettings().tollAmount;
     const migrated = legacyAmount > 0
-      ? [{ id: "peage-1", name: "Péage", amount: legacyAmount }]
+      ? [{ id: "peage-1", name: "Péage", history: [{ from: "2000-01-01", amount: legacyAmount }] }]
       : [];
     writeJson(KEY_PEAGES, migrated);
     return migrated;
@@ -134,41 +142,103 @@
     writeJson(KEY_PEAGES, list);
   }
 
-  function addPeage(name, amount) {
+  // Ajoute une entrée d'historique datée (aujourd'hui par défaut) au lieu
+  // d'écraser le montant — les jours déjà enregistrés avant cette date
+  // gardent leur calcul avec l'ancien montant.
+  function addPeage(name, amount, effectiveFrom) {
     const list = getPeages();
     const id = "peage-" + Date.now();
-    list.push({ id, name, amount });
+    list.push({ id, name, history: [{ from: effectiveFrom || "2000-01-01", amount }] });
     savePeages(list);
     return id;
   }
 
-  function updatePeage(id, name, amount) {
+  function renamePeage(id, name) {
     const list = getPeages();
     const p = list.find((x) => x.id === id);
-    if (p) {
-      p.name = name;
-      p.amount = amount;
-      savePeages(list);
+    if (p) { p.name = name; savePeages(list); }
+  }
+
+  function setPeageAmount(id, amount, effectiveFrom) {
+    const list = getPeages();
+    const p = list.find((x) => x.id === id);
+    if (!p) return;
+    const from = effectiveFrom || todayStrForStorage();
+    const existingForDate = p.history.find((h) => h.from === from);
+    if (existingForDate) {
+      existingForDate.amount = amount;
+    } else {
+      p.history.push({ from, amount });
+      p.history.sort((a, b) => a.from.localeCompare(b.from));
     }
+    savePeages(list);
+  }
+
+  function todayStrForStorage() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   }
 
   function deletePeage(id) {
     savePeages(getPeages().filter((p) => p.id !== id));
   }
 
-  // Compte + montant total des péages d'un jour, à partir de la liste
-  // de péages actuelle (les prix ne sont pas historisés : un changement
-  // de tarif s'applique rétroactivement à tous les jours, comme c'était
-  // déjà le cas avec l'ancien montant unique).
+  // Montant en vigueur d'un péage à une date donnée (le dernier changement
+  // dont la date d'effet est <= à la date demandée).
+  function peageAmountAt(peage, dateStr) {
+    let amount = peage.history[0] ? peage.history[0].amount : 0;
+    for (const h of peage.history) {
+      if (h.from <= dateStr) amount = h.amount; else break;
+    }
+    return amount;
+  }
+
+  // Compte + montant total des péages d'un jour, en tenant compte du
+  // montant en vigueur à la date de l'entrée (historique de prix).
   function tollTotalsForEntry(entry, peages) {
     const tolls = (entry && entry.tolls) || {};
     let count = 0, amount = 0;
     for (const p of peages) {
       const c = tolls[p.id] || 0;
       count += c;
-      amount += c * p.amount;
+      amount += c * peageAmountAt(p, entry.date);
     }
     return { count, amount };
+  }
+
+  // -----------------------------------------------------------------
+  // Dossier de sauvegarde automatique locale (File System Access API).
+  // Le FileSystemDirectoryHandle n'est pas sérialisable en JSON, donc on
+  // le stocke à part dans IndexedDB (structured clone), pas dans
+  // localStorage comme le reste.
+  // -----------------------------------------------------------------
+  function openHandleDb() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open("myshift-handles", 1);
+      req.onupgradeneeded = () => req.result.createObjectStore("handles");
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function saveDirHandle(handle) {
+    const db = await openHandleDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readwrite");
+      tx.objectStore("handles").put(handle, "backupDir");
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function getDirHandle() {
+    const db = await openHandleDb();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("handles", "readonly");
+      const req = tx.objectStore("handles").get("backupDir");
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
   }
 
   function resetAll() {
@@ -217,8 +287,12 @@
     getPeages,
     savePeages,
     addPeage,
-    updatePeage,
+    renamePeage,
+    setPeageAmount,
+    peageAmountAt,
     deletePeage,
-    tollTotalsForEntry
+    tollTotalsForEntry,
+    saveDirHandle,
+    getDirHandle
   };
 })(window);

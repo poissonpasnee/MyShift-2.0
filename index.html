@@ -32,6 +32,12 @@
     <button class="drawer-item" data-action="open-export-xlsx">
       <span class="drawer-icon">📊</span> Exporter XLSX
     </button>
+    <button class="drawer-item" data-action="apply-repos-series">
+      <span class="drawer-icon">🛌</span> Remplir les repos (ce mois)
+    </button>
+    <button class="drawer-item" data-action="open-annual-stats">
+      <span class="drawer-icon">📈</span> Statistiques annuelles
+    </button>
   </nav>
 
   <!-- Top bar -->
@@ -216,6 +222,22 @@
           </div>
         </div>
 
+        <h3 class="section-header">Repos récurrents</h3>
+        <div class="settings-group">
+          <div style="padding:13px 16px">
+            <p class="hint" style="margin:0 0 10px">Jours de la semaine à remplir automatiquement en "Repos".</p>
+            <div class="weekday-picker" id="set-repos-weekdays">
+              <button data-dow="0" class="weekday-btn">DI</button>
+              <button data-dow="1" class="weekday-btn">LU</button>
+              <button data-dow="2" class="weekday-btn">MA</button>
+              <button data-dow="3" class="weekday-btn">ME</button>
+              <button data-dow="4" class="weekday-btn">JE</button>
+              <button data-dow="5" class="weekday-btn">VE</button>
+              <button data-dow="6" class="weekday-btn">SA</button>
+            </div>
+          </div>
+        </div>
+
         <h3 class="section-header">Export CSV</h3>
         <div class="settings-group">
           <div class="switch-row">
@@ -236,6 +258,16 @@
         </div>
 
         <h3 class="section-header">Données</h3>
+        <div class="settings-group">
+          <div class="switch-row">
+            <span>Sauvegarde automatique locale</span>
+            <label class="switch"><input type="checkbox" id="set-autoBackupEnabled"><span class="slider"></span></label>
+          </div>
+          <div class="value-row" id="btn-choose-backup-folder">
+            <span>Dossier de sauvegarde</span><span class="value" id="set-backup-folder-name">Non choisi</span>
+          </div>
+        </div>
+        <p class="hint" id="autoBackup-unsupported-hint">Ton navigateur ne permet pas cette fonctionnalité — utilise l'export manuel ci-dessous.</p>
         <div class="settings-group">
           <div class="value-row" data-action="export-json">
             <span>Exporter mes données (sauvegarde)</span><span class="value">📦</span>
@@ -261,12 +293,33 @@
       <h2 id="peage-edit-title">Péage</h2>
       <label class="field-label" for="peage-edit-name">Nom</label>
       <input type="text" id="peage-edit-name" class="text-input" placeholder="Ex. A62 Sud">
-      <label class="field-label" for="peage-edit-amount">Montant (€)</label>
+      <label class="field-label" for="peage-edit-amount">Montant actuel (€)</label>
       <input type="number" step="0.01" id="peage-edit-amount" class="text-input">
+      <p class="hint">Un changement de montant s'applique à partir d'aujourd'hui — les jours déjà enregistrés gardent l'ancien tarif.</p>
+      <div id="peage-edit-history"></div>
       <div class="dialog-actions">
         <button class="btn-text danger-text hidden" id="peage-edit-delete">Supprimer</button>
         <button class="btn-text" data-action="close-dialog">Annuler</button>
         <button class="btn-primary" id="peage-edit-save">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annual stats dialog (full screen) -->
+  <div id="dialog-annual-stats" class="dialog fullscreen hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-dialog">✕</button>
+        <h2>Statistiques annuelles</h2>
+      </header>
+      <div class="settings-content">
+        <div class="year-row">
+          <button class="icon-btn" id="annual-stats-year-prev">‹</button>
+          <span id="annual-stats-year-label" class="year-label big"></span>
+          <button class="icon-btn" id="annual-stats-year-next">›</button>
+        </div>
+        <div id="annual-stats-content" style="margin-top:16px"></div>
+        <div style="height:32px"></div>
       </div>
     </div>
   </div>

@@ -570,6 +570,14 @@
         closeDrawer();
         openXlsxDialog();
         break;
+      case "apply-repos-series":
+        closeDrawer();
+        applyReposSeries();
+        break;
+      case "open-annual-stats":
+        closeDrawer();
+        openAnnualStatsDialog();
+        break;
       case "toggle-theme":
         state.settings = Storage.setSetting("darkTheme", !state.settings.darkTheme);
         renderAll();
@@ -642,6 +650,48 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  async function chooseBackupFolder() {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
+      await Storage.saveDirHandle(handle);
+      state.settings = Storage.setSetting("autoBackupFolderName", handle.name);
+      state.settings = Storage.setSetting("autoBackupEnabled", true);
+      renderSettingsValues();
+      showToast("Dossier de sauvegarde choisi");
+    } catch (e) { /* annulé par l'utilisateur */ }
+  }
+
+  async function enableAutoBackup() {
+    const existing = await Storage.getDirHandle();
+    if (!existing) {
+      await chooseBackupFolder();
+    } else {
+      state.settings = Storage.setSetting("autoBackupEnabled", true);
+      renderSettingsValues();
+    }
+  }
+
+  async function writeAutoBackup() {
+    try {
+      const handle = await Storage.getDirHandle();
+      if (!handle) return;
+      const perm = await handle.queryPermission({ mode: "readwrite" });
+      if (perm !== "granted") return; // pas de prompt silencieux sans geste utilisateur
+      const fileHandle = await handle.getFileHandle("myshift-sauvegarde-auto.json", { create: true });
+      const writable = await fileHandle.createWritable();
+      await writable.write(JSON.stringify(Storage.exportAll(), null, 2));
+      await writable.close();
+    } catch (e) { /* dossier déplacé/supprimé — on retentera demain */ }
+  }
+
+  async function maybeRunAutoBackup() {
+    if (!state.settings.autoBackupEnabled) return;
+    const today = todayStr();
+    if (localStorage.getItem("myshift.lastAutoBackupDate") === today) return;
+    await writeAutoBackup();
+    localStorage.setItem("myshift.lastAutoBackupDate", today);
   }
 
   function exportJsonBackup() {
@@ -774,6 +824,78 @@
     }, 30);
   });
 
+  function applyReposSeries() {
+    const weekdays = state.settings.reposWeekdays || [];
+    if (weekdays.length === 0) {
+      showToast("Choisis d'abord des jours dans Réglages → Repos récurrents");
+      return;
+    }
+    const ym = state.currentMonth;
+    const count = daysInMonth(ym.y, ym.m);
+    let filled = 0;
+    for (let d = 1; d <= count; d++) {
+      const dateStr = dstr(ym.y, ym.m, d);
+      const dow = new Date(ym.y, ym.m - 1, d).getDay();
+      if (weekdays.includes(dow) && !Storage.getEntry(dateStr)) {
+        Storage.saveEntry(dateStr, "repos", null, null, {});
+        filled++;
+      }
+    }
+    renderMonth();
+    showToast(filled > 0 ? `${filled} jour(s) de repos ajoutés` : "Rien à ajouter, déjà rempli");
+  }
+
+  // ---------------------------------------------------------------------
+  // Annual stats dialog
+  // ---------------------------------------------------------------------
+  function renderAnnualStats(year) {
+    document.getElementById("annual-stats-year-label").textContent = String(year);
+    const colors = shiftColors();
+    const months = [];
+    for (let m = 1; m <= 12; m++) months.push(monthData({ y: year, m }));
+    const maxDays = 31;
+    const bars = months.map((md, i) => {
+      const s = md.stats;
+      const seg = (count, color) => count > 0 ? `<div class="stat-bar-seg" style="width:${(count / maxDays) * 100}%;background:${color}"></div>` : "";
+      return `<div class="stat-bar-row">
+        <span class="stat-bar-label">${MONTHS_FR_SHORT[i]}</span>
+        <div class="stat-bar-track">${seg(s.jour, colors.jour)}${seg(s.nuit, colors.nuit)}${seg(s.mn, colors.mn)}${seg(s.repos, colors.repos)}${seg(s.conges, colors.conges)}</div>
+      </div>`;
+    }).join("");
+
+    const totals = { jour: 0, nuit: 0, mn: 0, repos: 0, conges: 0, toll: 0, total: 0 };
+    const rows = months.map((md, i) => {
+      const s = md.stats;
+      totals.jour += s.jour; totals.nuit += s.nuit; totals.mn += s.mn;
+      totals.repos += s.repos; totals.conges += s.conges;
+      totals.toll += md.toll; totals.total += md.total;
+      return `<tr><td>${MONTHS_FR_SHORT[i]}</td><td>${s.jour}</td><td>${s.nuit}</td><td>${s.mn}</td><td>${s.repos}</td><td>${s.conges}</td><td>${formatEuro(md.toll)}</td><td>${formatEuro(md.total)}</td></tr>`;
+    }).join("");
+
+    document.getElementById("annual-stats-content").innerHTML = `
+      ${bars}
+      <table class="stat-table">
+        <thead><tr><th>Mois</th><th>Jour</th><th>Nuit</th><th>MN</th><th>Repos</th><th>Congés</th><th>Péages</th><th>Total</th></tr></thead>
+        <tbody>${rows}</tbody>
+        <tfoot><tr><td>Total</td><td>${totals.jour}</td><td>${totals.nuit}</td><td>${totals.mn}</td><td>${totals.repos}</td><td>${totals.conges}</td><td>${formatEuro(totals.toll)}</td><td>${formatEuro(totals.total)}</td></tr></tfoot>
+      </table>`;
+  }
+
+  function openAnnualStatsDialog() {
+    state.annualStatsYear = Number(todayStr().slice(0, 4));
+    renderAnnualStats(state.annualStatsYear);
+    openDialog("dialog-annual-stats");
+  }
+
+  document.getElementById("annual-stats-year-prev").addEventListener("click", () => {
+    state.annualStatsYear--;
+    renderAnnualStats(state.annualStatsYear);
+  });
+  document.getElementById("annual-stats-year-next").addEventListener("click", () => {
+    state.annualStatsYear++;
+    renderAnnualStats(state.annualStatsYear);
+  });
+
   // ---------------------------------------------------------------------
   // Settings dialog
   // ---------------------------------------------------------------------
@@ -786,7 +908,7 @@
     }
     container.innerHTML = peages.map((p) => `
       <div class="value-row" data-peage-id="${p.id}">
-        <span>${p.name}</span><span class="value">${formatEuro(p.amount)}</span>
+        <span>${p.name}</span><span class="value">${formatEuro(Storage.peageAmountAt(p, todayStr()))}</span>
       </div>`).join("");
   }
 
@@ -808,16 +930,36 @@
     document.getElementById("set-colorPalette").textContent = Palettes.PALETTES.find((p) => p.id === s.colorPalette).label;
     document.getElementById("set-showWeekNumbers").checked = s.showWeekNumbers;
     document.getElementById("set-weekStartSunday").checked = s.weekStartSunday;
+    document.querySelectorAll("#set-repos-weekdays .weekday-btn").forEach((btn) => {
+      btn.classList.toggle("selected", (s.reposWeekdays || []).includes(Number(btn.dataset.dow)));
+    });
 
     document.getElementById("set-exportNotes").checked = s.exportNotes;
     document.getElementById("set-exportToll").checked = s.exportToll;
     document.getElementById("set-exportBase").checked = s.exportBase;
     document.getElementById("set-congesLabel").textContent = s.congesLabel;
+
+    const autoBackupSupported = "showDirectoryPicker" in window;
+    document.getElementById("autoBackup-unsupported-hint").classList.toggle("hidden", autoBackupSupported);
+    document.getElementById("set-autoBackupEnabled").closest(".settings-group").classList.toggle("hidden", !autoBackupSupported);
+    if (autoBackupSupported) {
+      document.getElementById("set-autoBackupEnabled").checked = !!s.autoBackupEnabled;
+      document.getElementById("set-backup-folder-name").textContent = s.autoBackupFolderName || "Non choisi";
+    }
   }
 
   function openSettingsDialog() {
     renderSettingsValues();
     openDialog("dialog-settings");
+  }
+
+  function renderPeageHistory(peage) {
+    const container = document.getElementById("peage-edit-history");
+    if (!peage || peage.history.length <= 1) { container.innerHTML = ""; return; }
+    const rows = peage.history.slice().reverse().map((h) =>
+      `<div class="info-row"><span class="muted">à partir du ${h.from.split("-").reverse().join("/")}</span><span class="value">${formatEuro(h.amount)}</span></div>`
+    ).join("");
+    container.innerHTML = `<div class="field-label">Historique des tarifs</div>${rows}`;
   }
 
   function openPeageEditDialog(peageId) {
@@ -828,12 +970,14 @@
       const p = Storage.getPeages().find((x) => x.id === peageId);
       document.getElementById("peage-edit-title").textContent = "Modifier le péage";
       document.getElementById("peage-edit-name").value = p ? p.name : "";
-      document.getElementById("peage-edit-amount").value = p ? p.amount : "";
+      document.getElementById("peage-edit-amount").value = p ? Storage.peageAmountAt(p, todayStr()) : "";
+      renderPeageHistory(p);
       deleteBtn.classList.remove("hidden");
     } else {
       document.getElementById("peage-edit-title").textContent = "Nouveau péage";
       document.getElementById("peage-edit-name").value = "";
       document.getElementById("peage-edit-amount").value = "";
+      document.getElementById("peage-edit-history").innerHTML = "";
       deleteBtn.classList.add("hidden");
     }
     openDialog("dialog-peage-edit");
@@ -844,10 +988,15 @@
     const name = document.getElementById("peage-edit-name").value.trim();
     const amount = parseFloat(document.getElementById("peage-edit-amount").value) || 0;
     if (!name) return showToast("Donne un nom à ce péage");
-    if (dialog.dataset.peageId) {
-      Storage.updatePeage(dialog.dataset.peageId, name, amount);
+    const peageId = dialog.dataset.peageId;
+    if (peageId) {
+      Storage.renamePeage(peageId, name);
+      const current = Storage.getPeages().find((x) => x.id === peageId);
+      if (Storage.peageAmountAt(current, todayStr()) !== amount) {
+        Storage.setPeageAmount(peageId, amount);
+      }
     } else {
-      Storage.addPeage(name, amount);
+      Storage.addPeage(name, amount, "2000-01-01");
     }
     closeDialog("dialog-peage-edit");
     renderPeagesList();
@@ -871,6 +1020,15 @@
     }
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
     if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
+    if (e.target.closest("#btn-choose-backup-folder")) chooseBackupFolder();
+    const dowBtn = e.target.closest("#set-repos-weekdays .weekday-btn");
+    if (dowBtn) {
+      const dow = Number(dowBtn.dataset.dow);
+      const current = state.settings.reposWeekdays || [];
+      const next = current.includes(dow) ? current.filter((d) => d !== dow) : current.concat(dow);
+      state.settings = Storage.setSetting("reposWeekdays", next);
+      renderSettingsValues();
+    }
     const peageRow = e.target.closest("#set-peages-list .value-row[data-peage-id]");
     if (peageRow) openPeageEditDialog(peageRow.dataset.peageId);
     if (e.target.closest('[data-action="export-json"]')) exportJsonBackup();
@@ -890,6 +1048,12 @@
   });
 
   document.getElementById("dialog-settings").addEventListener("change", (e) => {
+    if (e.target.id === "set-autoBackupEnabled") {
+      if (e.target.checked) enableAutoBackup(); else {
+        state.settings = Storage.setSetting("autoBackupEnabled", false);
+      }
+      return;
+    }
     const map = {
       "set-reminderEnabled": "reminderEnabled",
       "set-darkTheme": "darkTheme",
@@ -990,4 +1154,5 @@
   // Init
   // ---------------------------------------------------------------------
   renderAll();
+  maybeRunAutoBackup();
 })();
