@@ -1010,7 +1010,7 @@
     }
   });
 
-  document.getElementById("dialog-settings").addEventListener("click", (e) => {
+  document.addEventListener("click", (e) => {
     const row = e.target.closest(".value-row[data-edit]");
     if (row && row.id !== "set-palette-row") {
       openGenericEdit(row.dataset.edit, row.dataset.label, row.dataset.type);
@@ -1044,7 +1044,7 @@
     if (file) importJsonBackup(file);
   });
 
-  document.getElementById("dialog-settings").addEventListener("change", (e) => {
+  document.addEventListener("change", (e) => {
     if (e.target.id === "set-autoBackupEnabled") {
       state.settings = Storage.setSetting("autoBackupEnabled", e.target.checked);
       if (e.target.checked) maybeRunAutoBackup();
