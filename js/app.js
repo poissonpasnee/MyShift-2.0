@@ -134,7 +134,7 @@
     const mr = Math.round(r * ratio + base.r * (1 - ratio));
     const mg = Math.round(g * ratio + base.g * (1 - ratio));
     const mb = Math.round(b * ratio + base.b * (1 - ratio));
-    return `rgb(${mr},${mg},${mb})`;
+    return "#" + [mr, mg, mb].map((c) => c.toString(16).padStart(2, "0")).join("");
   }
 
   function dayCellHtml(cell, entriesMap, colors, peages) {
@@ -146,7 +146,7 @@
     if (entry) {
       const vivid = colors[entry.status];
       bg = mixWithSurfaceVariant(vivid, 0.24);
-      textColor = vivid;
+      textColor = Palettes.contrastingTextColor(bg);
     } else {
       bg = null;
       textColor = "var(--on-surface)";
