@@ -133,8 +133,9 @@
     const isToday = dateStr === todayStr();
     let bg, textColor;
     if (entry) {
-      bg = colors[entry.status];
-      textColor = Palettes.contrastingTextColor(bg);
+      const vivid = colors[entry.status];
+      bg = `color-mix(in srgb, ${vivid} 24%, var(--surface-variant))`;
+      textColor = vivid;
     } else {
       bg = null;
       textColor = "var(--on-surface)";
