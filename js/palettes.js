@@ -7,7 +7,13 @@
     { id: "ocean", label: "Océan" },
     { id: "foret", label: "Forêt" },
     { id: "ambre", label: "Ambre" },
-    { id: "grenade", label: "Grenade" }
+    { id: "grenade", label: "Grenade" },
+    { id: "emeraude", label: "Émeraude nuit" },
+    { id: "indigo", label: "Indigo profond" },
+    { id: "corail", label: "Corail chaleureux" },
+    { id: "bleufranc", label: "Bleu franc" },
+    { id: "magenta", label: "Magenta électrique" },
+    { id: "sauge", label: "Sauge doux" }
   ];
 
   // tones: primary, nuit, conges, peage
@@ -16,7 +22,13 @@
     ocean: { primary: "#A8C8FF", nuit: "#3F5578", conges: "#2B3A3A", peage: "#7DDBB0" },
     foret: { primary: "#9FD6A4", nuit: "#3B5A44", conges: "#2E3A2B", peage: "#E6C04D" },
     ambre: { primary: "#F2C07A", nuit: "#6A4F2E", conges: "#3A352B", peage: "#8FD6A0" },
-    grenade: { primary: "#F2B3CF", nuit: "#6A3F56", conges: "#332B3A", peage: "#7DDBB0" }
+    grenade: { primary: "#F2B3CF", nuit: "#6A3F56", conges: "#332B3A", peage: "#7DDBB0" },
+    emeraude: { primary: "#4ADE80", nuit: "#234030", conges: "#1F3A2E", peage: "#7DDBB0" },
+    indigo: { primary: "#A79CFF", nuit: "#3A3468", conges: "#2B2B3A", peage: "#7DDBB0" },
+    corail: { primary: "#FFAB85", nuit: "#5A3B2E", conges: "#3A352B", peage: "#8FD6A0" },
+    bleufranc: { primary: "#8AB4FF", nuit: "#2C3E66", conges: "#2B3A3A", peage: "#7DDBB0" },
+    magenta: { primary: "#F27FA8", nuit: "#5C2E45", conges: "#332B3A", peage: "#7DDBB0" },
+    sauge: { primary: "#B7C4A6", nuit: "#3A4230", conges: "#2E3A2B", peage: "#E6C04D" }
   };
 
   const TONES_LIGHT = {
@@ -24,7 +36,13 @@
     ocean: { primary: "#1F5FA8", nuit: "#CFE0FF", conges: "#C2E8E2", peage: "#1E7A5A" },
     foret: { primary: "#2E6B3A", nuit: "#CBECC9", conges: "#DBE8BD", peage: "#8A6A00" },
     ambre: { primary: "#8A5A12", nuit: "#F0DCC0", conges: "#D5E6C4", peage: "#1E7A54" },
-    grenade: { primary: "#9C3F68", nuit: "#F4D3E2", conges: "#D3E0D8", peage: "#1E7A54" }
+    grenade: { primary: "#9C3F68", nuit: "#F4D3E2", conges: "#D3E0D8", peage: "#1E7A54" },
+    emeraude: { primary: "#16803D", nuit: "#C8F0D8", conges: "#C3E9D8", peage: "#1E7A54" },
+    indigo: { primary: "#5B4FCF", nuit: "#DAD4FF", conges: "#C3E9D8", peage: "#1E7A54" },
+    corail: { primary: "#C1502A", nuit: "#FFD9C2", conges: "#D5E6C4", peage: "#1E7A54" },
+    bleufranc: { primary: "#1D5FD1", nuit: "#CFE0FF", conges: "#C2E8E2", peage: "#1E7A5A" },
+    magenta: { primary: "#B01858", nuit: "#F7CBDD", conges: "#D3E0D8", peage: "#1E7A54" },
+    sauge: { primary: "#5F7048", nuit: "#DCE5CE", conges: "#DBE8BD", peage: "#8A6A00" }
   };
 
   // Fixed across all palettes/themes

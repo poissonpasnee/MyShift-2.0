@@ -58,6 +58,7 @@
   // ---------------------------------------------------------------------
   function applyTheme() {
     document.documentElement.setAttribute("data-theme", state.settings.darkTheme ? "dark" : "light");
+    document.documentElement.setAttribute("data-bg", state.settings.darkBgVariant || "ardoise");
     const tones = Palettes.paletteTones(state.settings.colorPalette, state.settings.darkTheme);
     document.documentElement.style.setProperty("--color-primary", tones.primary);
     document.documentElement.style.setProperty("--color-on-primary", Palettes.contrastingTextColor(tones.primary));
@@ -907,6 +908,8 @@
 
     document.getElementById("set-darkTheme").checked = s.darkTheme;
     document.getElementById("set-colorPalette").textContent = Palettes.PALETTES.find((p) => p.id === s.colorPalette).label;
+    document.getElementById("set-bg-row").classList.toggle("hidden", !s.darkTheme);
+    document.getElementById("set-darkBgVariant").textContent = BG_VARIANTS.find((b) => b.id === s.darkBgVariant).label;
     document.getElementById("set-showWeekNumbers").checked = s.showWeekNumbers;
     document.getElementById("set-weekStartSunday").checked = s.weekStartSunday;
     document.querySelectorAll("#set-repos-weekdays .weekday-btn").forEach((btn) => {
@@ -992,6 +995,7 @@
       openGenericEdit(row.dataset.edit, row.dataset.label, row.dataset.type);
     }
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
+    if (e.target.closest("#set-bg-row")) openBgDialog();
     if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
     const dowBtn = e.target.closest("#set-repos-weekdays .weekday-btn");
     if (dowBtn) {
@@ -1063,6 +1067,33 @@
       renderAll();
     };
   }
+
+  const BG_VARIANTS = [
+    { id: "ardoise", label: "Ardoise", swatch: "#0F172A" },
+    { id: "oled", label: "Noir OLED", swatch: "#000000" },
+    { id: "gris", label: "Gris chaud", swatch: "#1C1B1F" }
+  ];
+
+  function openBgDialog() {
+    const list = document.getElementById("bg-list");
+    list.innerHTML = BG_VARIANTS.map((b) => {
+      const isCurrent = b.id === state.settings.darkBgVariant;
+      return `<div class="palette-option" data-id="${b.id}">
+        <div class="palette-swatch" style="background:${b.swatch};border:1px solid var(--outline-variant)"></div>
+        <div class="name">${b.label}</div>
+        ${isCurrent ? '<div class="check">✓</div>' : ""}
+      </div>`;
+    }).join("");
+    openDialog("dialog-bg");
+  }
+  document.getElementById("bg-list").addEventListener("click", (e) => {
+    const opt = e.target.closest(".palette-option");
+    if (!opt) return;
+    state.settings = Storage.setSetting("darkBgVariant", opt.dataset.id);
+    closeDialog("dialog-bg");
+    renderSettingsValues();
+    renderAll();
+  });
 
   function openPaletteDialog() {
     const list = document.getElementById("palette-list");

@@ -18,6 +18,18 @@
   --danger: #F87171;
   color-scheme: dark;
 }
+:root[data-theme="dark"][data-bg="oled"] {
+  --bg: #000000;
+  --surface: #121212;
+  --surface-variant: #1E1E1E;
+  --outline-variant: #2C2C2C;
+}
+:root[data-theme="dark"][data-bg="gris"] {
+  --bg: #1C1B1F;
+  --surface: #2A292D;
+  --surface-variant: #37363B;
+  --outline-variant: #47454A;
+}
 
 :root[data-theme="light"] {
   --bg: #FBF8FD;

@@ -23,6 +23,7 @@
     reminderHour: "20:00",
     showWeekNumbers: false,
     colorPalette: "amethyste",
+    darkBgVariant: "ardoise",
     reposWeekdays: []
   };
 

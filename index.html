@@ -212,6 +212,9 @@
           <div class="value-row" id="set-palette-row">
             <span>Thème de couleur</span><span class="value" id="set-colorPalette"></span>
           </div>
+          <div class="value-row" id="set-bg-row">
+            <span>Fond</span><span class="value" id="set-darkBgVariant"></span>
+          </div>
           <div class="switch-row">
             <span>Numéros de semaine dans le calendrier</span>
             <label class="switch"><input type="checkbox" id="set-showWeekNumbers"><span class="slider"></span></label>
@@ -329,6 +332,17 @@
       <div class="dialog-actions">
         <button class="btn-text" data-action="close-dialog">Annuler</button>
         <button class="btn-primary" id="generic-edit-save">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Background variant picker dialog -->
+  <div id="dialog-bg" class="dialog hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box">
+      <h2>Fond</h2>
+      <div id="bg-list"></div>
+      <div class="dialog-actions">
+        <button class="btn-text" data-action="close-dialog">Fermer</button>
       </div>
     </div>
   </div>
