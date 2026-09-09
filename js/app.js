@@ -839,49 +839,6 @@
     localStorage.setItem("myshift.lastAutoBackupDate", today);
   }
 
-  document.getElementById("payslip-file-input").addEventListener("change", async (e) => {
-    const file = e.target.files[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const buffer = await file.arrayBuffer();
-      const result = await MyShiftPayslip.analyze(buffer, (y, m) => monthData({ y, m }).stats);
-      renderPayslipResult(result);
-      openDialog("dialog-payslip-result");
-    } catch (err) {
-      showToast(err.message || "Impossible d'analyser ce PDF");
-    }
-  });
-
-  function renderPayslipResult(result) {
-    const monthName = MONTHS_FR_SHORT[result.period.m - 1] + " " + result.period.y;
-    let html = `<p class="hint" style="margin-top:0">Période détectée : <strong>${monthName}</strong> — ${result.workedDays} jour(s)/nuit(s) travaillé(s) dont ${result.nights} nuit(s), d'après ton calendrier MyShift.</p>`;
-
-    if (result.warnings.length > 0) {
-      html += result.warnings.map((w) => `<p class="hint" style="color:var(--danger)">${w}</p>`).join("");
-    } else {
-      html += `
-        <div class="info-row"><span class="muted">Salaire de base</span><span class="value">${result.salaryBase !== null ? formatEuro(result.salaryBase) : "non trouvé"}</span></div>
-        <div class="info-row"><span class="muted">Total primes /jour ou nuit</span><span class="value">${formatEuro(result.perWorkedDayTotal)}</span></div>
-        <div class="info-row"><span class="muted">Total primes nuit uniquement</span><span class="value">${formatEuro(result.perNightTotal)}</span></div>
-        <div class="divider"></div>
-        <div class="info-row"><span class="muted">→ Taux Jour calculé</span><span class="value accent">${formatEuro(result.tauxJour)}</span></div>
-        <div class="info-row"><span class="muted">→ Taux Nuit calculé</span><span class="value accent">${formatEuro(result.tauxNuit)}</span></div>`;
-    }
-    document.getElementById("payslip-result-content").innerHTML = html;
-    const applyBtn = document.getElementById("payslip-apply-btn");
-    applyBtn.classList.toggle("hidden", result.warnings.length > 0);
-    applyBtn.onclick = () => {
-      if (result.salaryBase !== null) state.settings = Storage.setSetting("salaryBase", result.salaryBase);
-      state.settings = Storage.setSetting("rateJour", Math.round(result.tauxJour * 100) / 100);
-      state.settings = Storage.setSetting("rateNuit", Math.round(result.tauxNuit * 100) / 100);
-      closeDialog("dialog-payslip-result");
-      renderSettingsValues();
-      renderAll();
-      showToast("Taux mis à jour");
-    };
-  }
-
   function exportJsonBackup() {
     const data = Storage.exportAll();
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -1230,7 +1187,6 @@
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
     if (e.target.closest("#set-bg-row")) openBgDialog();
     if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
-    if (e.target.closest("#btn-import-payslip")) document.getElementById("payslip-file-input").click();
     if (e.target.closest("#btn-choose-backup-folder-native")) {
       if (window.AndroidBridge && window.AndroidBridge.chooseBackupFolder) {
         window.AndroidBridge.chooseBackupFolder();
