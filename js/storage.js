@@ -25,7 +25,10 @@
     colorPalette: "amethyste",
     darkBgVariant: "ardoise",
     reposWeekdays: [],
-    includeRatesInBackup: true
+    includeRatesInBackup: true,
+    horaireJour: "7h-17h",
+    horaireNuit: "21h30-6h",
+    viewMode: "week"
   };
 
   function readJson(key, fallback) {

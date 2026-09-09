@@ -19,10 +19,21 @@
 
   <!-- Drawer -->
   <nav id="drawer" class="drawer hidden" aria-label="Menu">
-    <div class="drawer-title">MyShift</div>
+    <div class="drawer-summary-card" id="drawer-summary-card">
+      <div class="drawer-summary-sub" id="drawer-summary-month"></div>
+      <div class="drawer-summary-amount" id="drawer-summary-amount"></div>
+      <div class="drawer-summary-sub" id="drawer-summary-details"></div>
+    </div>
     <button class="drawer-item" data-action="open-settings">
       <span class="drawer-icon">⚙️</span> Paramètres
     </button>
+    <button class="drawer-item" data-action="open-annual-stats">
+      <span class="drawer-icon">📈</span> Statistiques annuelles
+    </button>
+    <button class="drawer-item" data-action="apply-repos-series">
+      <span class="drawer-icon">🛌</span> Remplir les repos (ce mois)
+    </button>
+    <div class="drawer-divider"></div>
     <button class="drawer-item" data-action="import-csv">
       <span class="drawer-icon">📥</span> Importer CSV
     </button>
@@ -31,12 +42,6 @@
     </button>
     <button class="drawer-item" data-action="open-export-xlsx">
       <span class="drawer-icon">📊</span> Exporter XLSX
-    </button>
-    <button class="drawer-item" data-action="apply-repos-series">
-      <span class="drawer-icon">🛌</span> Remplir les repos (ce mois)
-    </button>
-    <button class="drawer-item" data-action="open-annual-stats">
-      <span class="drawer-icon">📈</span> Statistiques annuelles
     </button>
   </nav>
 
@@ -164,6 +169,7 @@
         <h2>Paramètres</h2>
       </header>
       <div class="settings-content">
+        <h3 class="section-header">Argent</h3>
         <div class="settings-group">
           <div class="value-row settings-cat-row" data-open-settings="remuneration">
             <span class="cat-icon" style="background:#6C5CE7">💰</span>
@@ -175,6 +181,10 @@
             <span class="cat-label">Péages</span>
             <span class="value" id="cat-value-peages"></span>
           </div>
+        </div>
+
+        <h3 class="section-header">Application</h3>
+        <div class="settings-group">
           <div class="value-row settings-cat-row" data-open-settings="apparence">
             <span class="cat-icon" style="background:#22C55E">🎨</span>
             <span class="cat-label">Apparence</span>
@@ -338,6 +348,17 @@
             <label class="switch"><input type="checkbox" id="set-weekStartSunday"><span class="slider"></span></label>
           </div>
         </div>
+
+        <h3 class="section-header">Horaires affichés (vue semaine)</h3>
+        <div class="settings-group">
+          <div class="value-row" data-edit="horaireJour" data-label="Horaire Jour (ex. 7h-17h)" data-type="text">
+            <span>Horaire Jour</span><span class="value" id="set-horaireJour"></span>
+          </div>
+          <div class="value-row" data-edit="horaireNuit" data-label="Horaire Nuit (ex. 21h30-6h)" data-type="text">
+            <span>Horaire Nuit</span><span class="value" id="set-horaireNuit"></span>
+          </div>
+        </div>
+        <p class="hint">Juste pour l'affichage dans la liste hebdomadaire — n'affecte pas le calcul du salaire.</p>
 
         <h3 class="section-header">Repos récurrents</h3>
         <div class="settings-group">

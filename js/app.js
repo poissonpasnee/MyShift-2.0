@@ -33,6 +33,24 @@
   function formatEuro(v) {
     return new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0) + " €";
   }
+  function dstr_addDays(dateStr, delta) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dt = new Date(y, m - 1, d + delta);
+    return dstr(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
+  }
+  function mondayOf(dateStr) {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const dow = new Date(y, m - 1, d).getDay(); // 0=dimanche..6=samedi
+    const delta = dow === 0 ? -6 : 1 - dow;
+    return dstr_addDays(dateStr, delta);
+  }
+  function weekRangeLabel(weekStart) {
+    const end = dstr_addDays(weekStart, 6);
+    const [, m1, d1] = weekStart.split("-").map(Number);
+    const [, m2, d2] = end.split("-").map(Number);
+    const short = (m) => MONTHS_FR[m - 1].slice(0, 4).toLowerCase();
+    return m1 === m2 ? `${d1} - ${d2} ${short(m1)}` : `${d1} ${short(m1)} - ${d2} ${short(m2)}`;
+  }
 
   // ---------------------------------------------------------------------
   // Global state
@@ -40,6 +58,7 @@
   const state = {
     settings: Storage.getSettings(),
     currentMonth: ymOf(todayStr()),
+    currentWeekStart: null,
     selectedDate: todayStr(),
     paintStatus: null,
     editingDate: null,
@@ -48,6 +67,7 @@
     xlsxYear: null,
     pickerYear: null
   };
+  state.currentWeekStart = mondayOf(todayStr());
 
   function shiftColors() {
     return Palettes.shiftColors(state.settings.colorPalette, state.settings.darkTheme);
@@ -249,10 +269,119 @@
     `;
   }
 
-  function renderMonth() {
-    document.getElementById("btn-month-label").textContent = monthLabel(state.currentMonth);
+  function renderRingHeader(ym) {
+    const { total, toll, entries } = monthData(ym);
+    const bonus = Storage.getBonuses()[ymKey(ym.y, ym.m)] || 0;
+    const totalDays = daysInMonth(ym.y, ym.m);
+    const filled = entries.length;
+    const r = 21;
+    const circ = 2 * Math.PI * r;
+    const progress = totalDays > 0 ? Math.min(filled / totalDays, 1) : 0;
+    const colorPrimary = shiftColors().jour ? "var(--color-primary)" : "var(--color-primary)";
+    const otherMode = state.settings.viewMode === "month" ? "week" : "month";
+    const toggleIcon = otherMode === "month" ? "📊" : "📋";
+    const toggleLabel = otherMode === "month" ? "Mois" : "Semaine";
+    return `
+      <div class="ring-header">
+        <svg width="52" height="52" viewBox="0 0 52 52">
+          <circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--outline-variant)" stroke-width="6"/>
+          <circle cx="26" cy="26" r="${r}" fill="none" stroke="var(--color-primary)" stroke-width="6"
+            stroke-dasharray="${(progress * circ).toFixed(1)} ${circ.toFixed(1)}" stroke-linecap="round"
+            transform="rotate(-90 26 26)"/>
+        </svg>
+        <div class="ring-header-info">
+          <div class="ring-header-sub">${monthLabel(ym)} · ${filled}/${totalDays} postes</div>
+          <div class="ring-header-amount">${formatEuro(total + bonus)}</div>
+        </div>
+        <button class="ring-toggle-btn" id="btn-toggle-view">${toggleIcon} ${toggleLabel}</button>
+      </div>`;
+  }
+
+  function dayRowHtml(dateStr) {
+    const entry = Storage.getEntry(dateStr);
+    const colors = shiftColors();
+    const s = state.settings;
+    const dow = new Date(...dateStr.split("-").map((v, i) => i === 1 ? Number(v) - 1 : Number(v))).getDay();
+    const dowLabel = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"][dow];
+    const dayNum = Number(dateStr.split("-")[2]);
+    const isSelected = dateStr === state.selectedDate;
+    let bg = "var(--surface-variant)", statusColor = "var(--on-surface-variant)", statusText = "Vide, à remplir", gainText = "";
+    if (entry) {
+      const vivid = colors[entry.status];
+      bg = mixWithSurfaceVariant(vivid, entry.status === "repos" || entry.status === "conges" ? 0.14 : 0.22);
+      statusColor = vivid;
+      statusText = STATUS_LABEL_LONG[entry.status];
+      if (entry.status === "jour") statusText += " · " + (s.horaireJour || "");
+      if (entry.status === "nuit") statusText += " · " + (s.horaireNuit || "");
+      if (entry.status === "jour" || entry.status === "nuit" || entry.status === "mn") {
+        const t = Storage.tollTotalsForEntry(entry, Storage.getPeages());
+        gainText = formatEuro(rateFor(entry.status) + t.amount);
+      }
+    }
+    return `<div class="day-cell day-row${isSelected ? " selected" : ""}" style="background:${bg}" data-date="${dateStr}">
+      <div class="dow-num"><span class="dow" style="color:${entry ? statusColor : "var(--on-surface-variant)"}">${dowLabel}</span><span class="num" style="color:var(--on-surface)">${dayNum}</span></div>
+      <div class="status-text" style="color:${statusColor}">${statusText}</div>
+      ${gainText ? `<div class="gain-text" style="color:${statusColor}">${gainText}</div>` : ""}
+    </div>`;
+  }
+
+  function renderWeekView() {
+    const weekStart = state.currentWeekStart;
+    const ym = ymOf(weekStart);
+    document.getElementById("btn-month-label").textContent = weekRangeLabel(weekStart);
+    let total = 0;
+    const peages = Storage.getPeages();
+    let rowsHtml = "";
+    for (let i = 0; i < 7; i++) {
+      const d = dstr_addDays(weekStart, i);
+      const entry = Storage.getEntry(d);
+      if (entry && (entry.status === "jour" || entry.status === "nuit" || entry.status === "mn")) {
+        total += rateFor(entry.status) + Storage.tollTotalsForEntry(entry, peages).amount;
+      }
+      rowsHtml += dayRowHtml(d);
+    }
     const pager = document.getElementById("pager");
-    pager.innerHTML = renderCalendar(state.currentMonth) + renderSummaryCard(state.currentMonth);
+    pager.innerHTML = renderRingHeader(ym) +
+      `<div class="week-list">${rowsHtml}</div>
+      <div class="week-total-row"><span>Total semaine</span><span class="value">${formatEuro(total)}</span></div>`;
+  }
+
+  function renderMonthRailView() {
+    const ym = state.currentMonth;
+    document.getElementById("btn-month-label").textContent = monthLabel(ym);
+    const entriesMap = Storage.getEntriesMap();
+    const colors = shiftColors();
+    const days = buildDaysGrid(ym);
+    const rows = [];
+    for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7));
+    const today = todayStr();
+
+    const weeksHtml = rows.map((row) => {
+      const stations = row.map((cell) => {
+        const entry = entriesMap[cell.date];
+        const isToday = cell.date === today;
+        let bg = "var(--outline-variant)", fg = "var(--on-surface-variant)";
+        if (entry) {
+          bg = mixWithSurfaceVariant(colors[entry.status], 0.9);
+          fg = Palettes.contrastingTextColor(bg);
+        }
+        const dayNum = Number(cell.date.split("-")[2]);
+        const size = isToday ? 30 : 26;
+        return `<button type="button" class="rail-station day-cell" data-date="${cell.date}" style="opacity:${cell.otherMonth ? 0.35 : 1}">
+          <div class="rail-dot" style="width:${size}px;height:${size}px;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;${isToday ? "box-shadow:0 0 0 2px var(--color-primary);" : ""}">${dayNum}</div>
+        </button>`;
+      }).join("");
+      return `<div class="rail-week-row"><div class="rail-line-bg"></div><div class="rail-stations">${stations}</div></div>`;
+    }).join("");
+
+    const pager = document.getElementById("pager");
+    pager.innerHTML = renderRingHeader(ym) + weeksHtml + renderSummaryCard(ym);
+  }
+
+  function renderMonth() {
+    const pager = document.getElementById("pager");
+    if (state.settings.viewMode === "month") renderMonthRailView();
+    else renderWeekView();
     pager.style.animation = "none";
     void pager.offsetWidth;
     pager.style.animation = "";
@@ -325,6 +454,13 @@
   const drawer = document.getElementById("drawer");
   const overlay = document.getElementById("overlay");
   function openDrawer() {
+    const ym = state.settings.viewMode === "month" ? state.currentMonth : ymOf(state.currentWeekStart);
+    const { total, stats } = monthData(ym);
+    const bonus = Storage.getBonuses()[ymKey(ym.y, ym.m)] || 0;
+    const worked = stats.jour + stats.nuit + stats.mn;
+    document.getElementById("drawer-summary-month").textContent = monthLabel(ym);
+    document.getElementById("drawer-summary-amount").textContent = formatEuro(total + bonus);
+    document.getElementById("drawer-summary-details").textContent = `${worked} poste${worked > 1 ? "s" : ""}`;
     drawer.classList.remove("hidden");
     drawer.classList.add("open");
     overlay.classList.remove("hidden");
@@ -462,6 +598,18 @@
       if (e.target.closest("#btn-edit-bonus")) {
         openBonusDialog();
       }
+      if (e.target.closest("#btn-toggle-view")) {
+        const next = state.settings.viewMode === "month" ? "week" : "month";
+        if (next === "month") {
+          state.currentMonth = ymOf(state.currentWeekStart);
+        } else {
+          const t = todayStr();
+          const inCurrentMonth = ymOf(t).y === state.currentMonth.y && ymOf(t).m === state.currentMonth.m;
+          state.currentWeekStart = mondayOf(inCurrentMonth ? t : dstr(state.currentMonth.y, state.currentMonth.m, 1));
+        }
+        state.settings = Storage.setSetting("viewMode", next);
+        renderMonth();
+      }
     });
 
     // Swipe left/right on the page to change month
@@ -474,7 +622,11 @@
       const dx = e.changedTouches[0].clientX - touchStartX;
       touchStartX = null;
       if (Math.abs(dx) > 70) {
-        state.currentMonth = ymAdd(state.currentMonth, dx > 0 ? -1 : 1);
+        if (state.settings.viewMode === "month") {
+          state.currentMonth = ymAdd(state.currentMonth, dx > 0 ? -1 : 1);
+        } else {
+          state.currentWeekStart = dstr_addDays(state.currentWeekStart, dx > 0 ? -7 : 7);
+        }
         renderMonth();
       }
     }, { passive: true });
@@ -521,6 +673,7 @@
     const btn = e.target.closest(".month-btn");
     if (!btn) return;
     state.currentMonth = { y: state.pickerYear, m: Number(btn.dataset.month) };
+    state.currentWeekStart = mondayOf(dstr(state.currentMonth.y, state.currentMonth.m, 1));
     closeDialog("dialog-month-picker");
     renderMonth();
   });
@@ -530,11 +683,19 @@
   // ---------------------------------------------------------------------
   document.getElementById("btn-menu").addEventListener("click", openDrawer);
   document.getElementById("btn-prev-month").addEventListener("click", () => {
-    state.currentMonth = ymAdd(state.currentMonth, -1);
+    if (state.settings.viewMode === "month") {
+      state.currentMonth = ymAdd(state.currentMonth, -1);
+    } else {
+      state.currentWeekStart = dstr_addDays(state.currentWeekStart, -7);
+    }
     renderMonth();
   });
   document.getElementById("btn-next-month").addEventListener("click", () => {
-    state.currentMonth = ymAdd(state.currentMonth, 1);
+    if (state.settings.viewMode === "month") {
+      state.currentMonth = ymAdd(state.currentMonth, 1);
+    } else {
+      state.currentWeekStart = dstr_addDays(state.currentWeekStart, 7);
+    }
     renderMonth();
   });
 
@@ -959,6 +1120,8 @@
     document.getElementById("set-darkBgVariant").textContent = BG_VARIANTS.find((b) => b.id === s.darkBgVariant).label;
     document.getElementById("set-showWeekNumbers").checked = s.showWeekNumbers;
     document.getElementById("set-weekStartSunday").checked = s.weekStartSunday;
+    document.getElementById("set-horaireJour").textContent = s.horaireJour;
+    document.getElementById("set-horaireNuit").textContent = s.horaireNuit;
     document.querySelectorAll("#set-repos-weekdays .weekday-btn").forEach((btn) => {
       btn.classList.toggle("selected", (s.reposWeekdays || []).includes(Number(btn.dataset.dow)));
     });
