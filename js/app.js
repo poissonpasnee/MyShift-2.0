@@ -5,6 +5,7 @@
   const STATUS_LABEL = { jour: "Jour", nuit: "Nuit", mn: "MN", repos: "Repos", conges: "Congés" };
   const STATUS_LABEL_LONG = { jour: "Jour", nuit: "Nuit", mn: "Montée", repos: "Repos", conges: "Congé" };
   const STATUS_LETTER = { jour: "J", nuit: "N", mn: "MN", repos: "R", conges: "C" };
+  const STATUS_ICON = { jour: "sun", nuit: "moon", mn: "arrowUpRight", repos: "coffee", conges: "plane" };
   const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
   const MONTHS_FR_SHORT = ["JANV", "FÉVR", "MARS", "AVR", "MAI", "JUIN", "JUIL", "AOÛT", "SEPT", "OCT", "NOV", "DÉC"];
 
@@ -398,7 +399,7 @@
       const fg = Palettes.contrastingTextColor(bg);
       const active = state.paintStatus === status;
       return `<button type="button" class="action-btn${active ? " active" : ""}" style="background:${bg};color:${fg}" data-status="${status}">
-        <span class="letter">${STATUS_LETTER[status]}</span>
+        <span class="icon">${Icons.icon(STATUS_ICON[status], 22)}</span>
         <span class="label">${STATUS_LABEL_LONG[status]}</span>
       </button>`;
     }).join("");

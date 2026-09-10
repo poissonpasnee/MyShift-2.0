@@ -429,17 +429,17 @@ button, input {
 .action-btn {
   flex: 1;
   height: 64px;
-  border-radius: var(--radius-pill);
+  border-radius: 16px;
   border: none;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  font-weight: 800;
+  gap: 4px;
+  font-weight: 600;
 }
-.action-btn .letter { font-size: 19px; }
+.action-btn .icon { display: flex; }
 .action-btn .label { font-size: 9.5px; font-weight: 500; opacity: 0.85; }
 .action-btn.active { box-shadow: 0 0 0 3px var(--on-surface); }
 
@@ -518,7 +518,15 @@ button, input {
   text-align: left;
 }
 .drawer-item:hover { background: var(--surface-variant); }
-.drawer-icon { font-size: 18px; width: 20px; text-align: center; }
+.drawer-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 .drawer-summary-card {
   background: var(--surface-variant);
   border-radius: 16px;
