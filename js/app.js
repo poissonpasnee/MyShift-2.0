@@ -834,10 +834,33 @@
     if (!state.settings.autoBackupEnabled) return;
     const today = todayStr();
     if (localStorage.getItem("myshift.lastAutoBackupDate") === today) return;
-    const data = Storage.exportAll();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-    downloadBlob(blob, `myshift-sauvegarde-auto-${today}.json`);
     localStorage.setItem("myshift.lastAutoBackupDate", today);
+    try {
+      const data = Storage.exportAll();
+      const entryCount = Object.keys(data.entries || {}).length;
+      if (entryCount === 0) {
+        throw new Error("Aucune donnée à sauvegarder (calendrier vide) — sauvegarde annulée par sécurité");
+      }
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      downloadBlob(blob, `myshift-sauvegarde-auto-${today}.json`);
+      localStorage.setItem("myshift.lastBackupSuccessDate", today);
+      localStorage.setItem("myshift.lastBackupEntryCount", String(entryCount));
+      localStorage.removeItem("myshift.lastBackupError");
+    } catch (err) {
+      localStorage.setItem("myshift.lastBackupError", (err && err.message) || "Erreur inconnue");
+    }
+  }
+
+  function getBackupStatus() {
+    const lastSuccess = localStorage.getItem("myshift.lastBackupSuccessDate");
+    const error = localStorage.getItem("myshift.lastBackupError");
+    const entryCount = localStorage.getItem("myshift.lastBackupEntryCount");
+    let daysSince = null;
+    if (lastSuccess) {
+      const ms = new Date(todayStr()).getTime() - new Date(lastSuccess).getTime();
+      daysSince = Math.round(ms / 86400000);
+    }
+    return { lastSuccess, error, entryCount, daysSince };
   }
 
   function exportJsonBackup() {
@@ -845,6 +868,10 @@
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const ym = todayStr().slice(0, 7);
     downloadBlob(blob, `myshift-sauvegarde-${ym}.json`);
+    const entryCount = Object.keys(data.entries || {}).length;
+    localStorage.setItem("myshift.lastBackupSuccessDate", todayStr());
+    localStorage.setItem("myshift.lastBackupEntryCount", String(entryCount));
+    localStorage.removeItem("myshift.lastBackupError");
     showToast("Sauvegarde exportée");
   }
 
@@ -1117,8 +1144,30 @@
 
   document.getElementById("dialog-settings").addEventListener("click", (e) => {
     const catRow = e.target.closest(".settings-cat-row[data-open-settings]");
-    if (catRow) openDialog("dialog-settings-" + catRow.dataset.openSettings);
+    if (catRow) {
+      openDialog("dialog-settings-" + catRow.dataset.openSettings);
+      if (catRow.dataset.openSettings === "donnees") renderBackupStatusBanner();
+    }
   });
+
+  function renderBackupStatusBanner() {
+    const banner = document.getElementById("backup-status-banner");
+    const status = getBackupStatus();
+    if (status.error) {
+      banner.className = "backup-status-banner error";
+      banner.textContent = `Dernière sauvegarde échouée : ${status.error}`;
+    } else if (!status.lastSuccess) {
+      banner.className = "backup-status-banner warn";
+      banner.textContent = "Aucune sauvegarde effectuée pour l'instant";
+    } else if (state.settings.autoBackupEnabled && status.daysSince > 2) {
+      banner.className = "backup-status-banner warn";
+      banner.textContent = `Dernière sauvegarde réussie il y a ${status.daysSince} jours — vérifie que la sauvegarde auto fonctionne`;
+    } else {
+      banner.className = "backup-status-banner ok";
+      const when = status.daysSince === 0 ? "aujourd'hui" : status.daysSince === 1 ? "hier" : `il y a ${status.daysSince} jours`;
+      banner.textContent = `Dernière sauvegarde réussie ${when} (${status.entryCount} jours enregistrés)`;
+    }
+  }
 
   function renderPeageHistory(peage) {
     const container = document.getElementById("peage-edit-history");
