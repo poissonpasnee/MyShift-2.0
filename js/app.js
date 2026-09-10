@@ -500,8 +500,33 @@
   function renderMonthGridView() {
     const ym = state.currentMonth;
     document.getElementById("btn-month-label").textContent = monthLabel(ym);
+    const entriesMap = Storage.getEntriesMap();
+    const colors = shiftColors();
+    const days = buildDaysGrid(ym);
+    const rows = [];
+    for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7));
+    const today = todayStr();
+
+    const weeksHtml = rows.map((row) => {
+      const stations = row.map((cell) => {
+        const entry = entriesMap[cell.date];
+        const isToday = cell.date === today;
+        let bg = "var(--outline-variant)", fg = "var(--on-surface-variant)";
+        if (entry) {
+          bg = mixWithSurfaceVariant(colors[entry.status], 0.9);
+          fg = Palettes.contrastingTextColor(bg);
+        }
+        const dayNum = Number(cell.date.split("-")[2]);
+        const size = isToday ? 30 : 26;
+        return `<button type="button" class="rail-station day-cell" data-date="${cell.date}" style="opacity:${cell.otherMonth ? 0.35 : 1}">
+          <div class="rail-dot" style="width:${size}px;height:${size}px;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;${isToday ? "box-shadow:0 0 0 2px var(--color-primary);" : ""}">${dayNum}</div>
+        </button>`;
+      }).join("");
+      return `<div class="rail-week-row"><div class="rail-line-bg"></div><div class="rail-stations">${stations}</div></div>`;
+    }).join("");
+
     const pager = document.getElementById("pager");
-    pager.innerHTML = renderRingHeader(ym) + renderCalendar(ym) + renderSummaryCard(ym);
+    pager.innerHTML = renderRingHeader(ym) + weeksHtml + renderSummaryCard(ym);
   }
 
   function renderMonth() {

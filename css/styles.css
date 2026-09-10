@@ -11,6 +11,7 @@
   --bg: #0F172A;
   --surface: #1E293B;
   --surface-variant: #283548;
+  --surface-translucent: rgba(30, 41, 59, 0.92);
   --on-surface: #F1F5F9;
   --on-surface-variant: #94A3B8;
   --outline-variant: #334155;
@@ -22,12 +23,14 @@
   --bg: #000000;
   --surface: #121212;
   --surface-variant: #1E1E1E;
+  --surface-translucent: rgba(18, 18, 18, 0.92);
   --outline-variant: #2C2C2C;
 }
 :root[data-theme="dark"][data-bg="gris"] {
   --bg: #1C1B1F;
   --surface: #2A292D;
   --surface-variant: #37363B;
+  --surface-translucent: rgba(42, 41, 45, 0.92);
   --outline-variant: #47454A;
 }
 
@@ -35,6 +38,7 @@
   --bg: #FBF8FD;
   --surface: #FFFFFF;
   --surface-variant: #E7E0EC;
+  --surface-translucent: rgba(255, 255, 255, 0.92);
   --on-surface: #1C1B1F;
   --on-surface-variant: #49454F;
   --outline-variant: #CAC4D0;
@@ -613,6 +617,25 @@ button, input {
 
 /* Fullscreen settings dialog */
 .dialog.fullscreen { padding: 0; align-items: stretch; justify-content: stretch; }
+.dialog.drawer-modal { padding: 0; align-items: stretch; justify-content: stretch; }
+.drawer-modal-box {
+  position: absolute;
+  top: 6vh;
+  bottom: 6vh;
+  left: 20px;
+  right: 20px;
+  max-width: 340px;
+  margin: 0 auto;
+  background: var(--surface-translucent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 24px;
+  box-shadow: 0 0 0 0.5px var(--border);
+  padding: 20px 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 .fullscreen-box {
   max-width: 100%;
   width: 100%;
