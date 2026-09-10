@@ -14,35 +14,52 @@
 
 <div id="app">
 
-  <!-- Overlay used by drawer & dialogs -->
-  <div id="overlay" class="overlay hidden"></div>
+  <!-- Drawer (full-screen menu, same visual language as Paramètres) -->
+  <nav id="drawer" class="dialog fullscreen hidden" aria-label="Menu">
+    <div class="dialog-box fullscreen-box">
+      <header class="settings-topbar">
+        <button class="icon-btn" data-action="close-drawer">✕</button>
+        <h2>Menu</h2>
+      </header>
+      <div class="settings-content drawer-content">
+        <div class="drawer-summary-card" id="drawer-summary-card">
+          <div class="drawer-summary-sub" id="drawer-summary-month"></div>
+          <button type="button" class="drawer-summary-amount-btn" id="btn-drawer-edit-real-salary">
+            <span class="drawer-summary-amount" id="drawer-summary-amount"></span>
+            <span class="ring-header-real" id="drawer-summary-real"></span>
+          </button>
+          <div class="drawer-summary-sub" id="drawer-summary-details"></div>
+        </div>
 
-  <!-- Drawer -->
-  <nav id="drawer" class="drawer hidden" aria-label="Menu">
-    <div class="drawer-summary-card" id="drawer-summary-card">
-      <div class="drawer-summary-sub" id="drawer-summary-month"></div>
-      <div class="drawer-summary-amount" id="drawer-summary-amount"></div>
-      <div class="drawer-summary-sub" id="drawer-summary-details"></div>
+        <h3 class="section-header">Application</h3>
+        <div class="settings-group">
+          <div class="value-row" data-action="open-settings"><span>Paramètres</span><span class="value">⚙️</span></div>
+        </div>
+
+        <h3 class="section-header">Aperçu</h3>
+        <div class="settings-group">
+          <div class="value-row" data-action="open-annual-stats"><span>Statistiques annuelles</span><span class="value">📈</span></div>
+        </div>
+
+        <h3 class="section-header">Ce mois-ci</h3>
+        <div class="settings-group">
+          <div class="value-row" data-action="apply-repos-series"><span>Remplir les repos</span><span class="value">🛌</span></div>
+        </div>
+
+        <h3 class="section-header">Données</h3>
+        <div class="settings-group">
+          <div class="value-row" data-action="import-csv"><span>Importer CSV</span><span class="value">📥</span></div>
+          <div class="value-row" data-action="export-csv"><span>Exporter CSV</span><span class="value">📤</span></div>
+          <div class="value-row" data-action="open-export-xlsx"><span>Exporter XLSX</span><span class="value">📊</span></div>
+        </div>
+
+        <div class="drawer-footer">
+          <div class="drawer-footer-icon" id="drawer-footer-icon"></div>
+          <div class="drawer-footer-name">MyShift</div>
+          <div class="drawer-footer-version">Version 2.1</div>
+        </div>
+      </div>
     </div>
-    <button class="drawer-item" data-action="open-settings">
-      <span class="drawer-icon" style="background:#3A3550;color:#A78BFA"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V21a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H3a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.6V3a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.6 1H21a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.5 1z"/></svg></span> Paramètres
-    </button>
-    <button class="drawer-item" data-action="open-annual-stats">
-      <span class="drawer-icon" style="background:#1F3A38;color:#5EEAD4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-4 3 3 5-6"/></svg></span> Statistiques annuelles
-    </button>
-    <button class="drawer-item" data-action="apply-repos-series">
-      <span class="drawer-icon" style="background:#3D3320;color:#E8B84B"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v7M3 18h18M3 18v2M21 18v2M7 9V6a1 1 0 0 1 1-1h3v4"/></svg></span> Remplir les repos (ce mois)
-    </button>
-    <div class="drawer-divider"></div>
-    <button class="drawer-item" data-action="import-csv">
-      <span class="drawer-icon" style="background:#1F2A38;color:#6BA5E8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg></span> Importer CSV
-    </button>
-    <button class="drawer-item" data-action="export-csv">
-      <span class="drawer-icon" style="background:#1F2A38;color:#6BA5E8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg></span> Exporter CSV
-    </button>
-    <button class="drawer-item" data-action="open-export-xlsx">
-      <span class="drawer-icon" style="background:#1F2A38;color:#6BA5E8"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M3 15h18M9 4v16"/></svg></span> Exporter XLSX
-    </button>
   </nav>
 
   <!-- Top bar -->
@@ -53,7 +70,7 @@
       <button id="btn-month-label" class="month-label"></button>
       <button id="btn-next-month" class="icon-btn" aria-label="Mois suivant">›</button>
     </div>
-    <div class="topbar-spacer"></div>
+    <button id="btn-today" class="icon-btn today-btn" aria-label="Revenir à aujourd'hui" title="Aujourd'hui">Auj.</button>
   </header>
 
   <!-- Main scrollable page -->
@@ -68,11 +85,6 @@
       <button id="btn-paint-stop" class="icon-btn small" aria-label="Arrêter le mode peinture">✕</button>
     </div>
     <div id="action-grid" class="action-grid"></div>
-    <div class="secondary-row">
-      <button class="secondary-btn" data-action="import-csv"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 11v6M9.5 14.5 12 17l2.5-2.5"/></svg> <span>Import</span></button>
-      <button class="secondary-btn" data-action="export-csv"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 17v-6M9.5 13.5 12 11l2.5 2.5"/></svg> <span>Export</span></button>
-      <button class="secondary-btn" data-action="toggle-theme"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 0 20 2 2 0 0 0 0-4h-1a1 1 0 0 1 0-2h2a3 3 0 0 0 0-6h-1a2 2 0 1 0 0-4"/><circle cx="7" cy="10" r="1"/><circle cx="8" cy="14" r="1"/><circle cx="12" cy="7" r="1"/></svg> <span>Thème</span></button>
-    </div>
   </footer>
 
   <!-- File input for CSV import (hidden) -->
@@ -108,9 +120,74 @@
       <input type="text" id="edit-day-note" class="text-input" placeholder="Note">
       <div class="field-label">Péages</div>
       <div id="edit-day-tolls"></div>
+
+      <div class="field-label">Photo</div>
+      <div id="edit-day-media-nofolder-photo" class="hint hidden">
+        Configure un dossier médias dans Réglages → Données pour activer les photos.
+      </div>
+      <div id="edit-day-media-photo">
+        <div id="edit-day-photo-empty" class="media-add-row media-add-row-split">
+          <button type="button" class="media-add-btn" id="btn-add-photo">📷 Prendre une photo</button>
+          <button type="button" class="media-add-btn" id="btn-pick-photo">🖼️ Galerie</button>
+        </div>
+        <div id="edit-day-photo-preview" class="media-photo-preview hidden">
+          <img id="edit-day-photo-img" alt="Photo du jour">
+          <button type="button" class="icon-btn small media-remove-btn" id="btn-remove-photo" aria-label="Supprimer la photo">🗑️</button>
+        </div>
+        <input type="file" id="gallery-photo-input" accept="image/*" hidden>
+      </div>
+
+      <div class="field-label">Note vocale</div>
+      <div id="edit-day-media-nofolder-audio" class="hint hidden">
+        Configure un dossier médias dans Réglages → Données pour activer les notes vocales.
+      </div>
+      <div id="edit-day-media-audio">
+        <div id="edit-day-audio-empty" class="media-add-row">
+          <button type="button" class="media-add-btn" id="btn-add-audio">🎙️ Ajouter une note vocale</button>
+        </div>
+        <div id="edit-day-audio-player" class="audio-player hidden">
+          <button type="button" class="audio-play-btn" id="audio-play-btn">▶️</button>
+          <div class="audio-progress"><div class="audio-progress-fill" id="audio-progress-fill"></div></div>
+          <span class="audio-time" id="audio-time">0:00</span>
+          <button type="button" class="icon-btn small media-remove-btn" id="btn-remove-audio" aria-label="Supprimer la note vocale">🗑️</button>
+        </div>
+        <audio id="edit-day-audio-el" hidden></audio>
+      </div>
+
       <p class="hint">La modification sera enregistrée en fermant cette fenêtre.</p>
       <div class="dialog-actions">
         <button class="btn-primary" id="edit-day-apply">✓ Appliquer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full-screen photo viewer -->
+  <div id="dialog-photo-viewer" class="dialog photo-viewer-dialog hidden" role="dialog" aria-modal="true">
+    <img id="photo-viewer-img" alt="Photo du jour">
+    <button type="button" class="icon-btn photo-viewer-close" data-action="close-dialog" aria-label="Fermer">✕</button>
+  </div>
+
+  <!-- In-app camera capture (photo) -->
+  <div id="dialog-camera" class="dialog camera-dialog hidden" role="dialog" aria-modal="true">
+    <video id="camera-video" autoplay playsinline muted></video>
+    <div class="camera-controls">
+      <button type="button" class="icon-btn camera-cancel" id="camera-cancel" aria-label="Annuler">✕</button>
+      <button type="button" class="camera-shutter" id="camera-shutter" aria-label="Prendre la photo"></button>
+      <span class="camera-spacer"></span>
+    </div>
+  </div>
+
+  <!-- In-app voice-note recorder -->
+  <div id="dialog-voice-recorder" class="dialog hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box voice-recorder-box">
+      <h2>Note vocale</h2>
+      <div class="voice-recorder-indicator">
+        <span class="voice-recorder-dot" id="voice-recorder-dot"></span>
+        <span id="voice-recorder-time">0:00</span>
+      </div>
+      <div class="dialog-actions">
+        <button class="btn-text" id="voice-recorder-cancel">Annuler</button>
+        <button class="btn-primary" id="voice-recorder-toggle">● Enregistrer</button>
       </div>
     </div>
   </div>
@@ -128,6 +205,20 @@
     </div>
   </div>
 
+  <!-- Real salary dialog -->
+  <div id="dialog-real-salary" class="dialog hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box">
+      <h2 id="real-salary-title">Salaire réel</h2>
+      <label class="field-label" for="real-salary-amount">Montant réellement perçu (€)</label>
+      <input type="number" step="0.01" id="real-salary-amount" class="text-input">
+      <p class="hint">Sert de référence pour les statistiques et l'export XLSX (salaire estimé / salaire réel). Laisse le champ vide pour effacer.</p>
+      <div class="dialog-actions">
+        <button class="btn-text" data-action="close-dialog">Annuler</button>
+        <button class="btn-primary" id="real-salary-save">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Export XLSX dialog -->
   <div id="dialog-export-xlsx" class="dialog hidden" role="dialog" aria-modal="true">
     <div class="dialog-box">
@@ -135,6 +226,7 @@
       <div class="segmented" id="xlsx-mode">
         <button data-value="monthly" class="segmented-btn selected">Mensuel</button>
         <button data-value="annual" class="segmented-btn">Annuel</button>
+        <button data-value="custom" class="segmented-btn">Période</button>
       </div>
       <div id="xlsx-monthly-pickers">
         <div class="year-row">
@@ -152,6 +244,13 @@
         <button class="icon-btn" id="xlsx-annual-year-prev">‹</button>
         <span id="xlsx-annual-year-label" class="year-label big"></span>
         <button class="icon-btn" id="xlsx-annual-year-next">›</button>
+      </div>
+      <div id="xlsx-custom-pickers" class="hidden">
+        <label class="field-label" for="xlsx-custom-start">Du</label>
+        <input type="date" id="xlsx-custom-start" class="text-input">
+        <label class="field-label" for="xlsx-custom-end">Au</label>
+        <input type="date" id="xlsx-custom-end" class="text-input">
+        <p class="hint">Inclut le détail par péage sur la période choisie.</p>
       </div>
       <p id="xlsx-status" class="hint"></p>
       <div class="dialog-actions">
@@ -284,7 +383,42 @@
             <span>Fond</span><span class="value" id="set-darkBgVariant"></span>
           </div>
         </div>
+
+        <h3 class="section-header">Couleurs des statuts</h3>
+        <div class="settings-group" id="set-status-colors"></div>
+        <p class="hint">Remplace la couleur du thème pour ce statut uniquement (boutons J/N/MN/R/C, calendrier). Réinitialise pour reprendre la couleur du thème.</p>
+
+        <h3 class="section-header">Texte</h3>
+        <div class="settings-group">
+          <div class="value-row status-color-row">
+            <span>Couleur du texte</span>
+            <div class="status-color-controls">
+              <button type="button" class="icon-btn small" id="btn-reset-text-color" aria-label="Réinitialiser">↺</button>
+              <input type="color" class="status-color-input" id="set-customTextColor">
+            </div>
+          </div>
+        </div>
+        <p class="hint">Remplace la couleur du texte dans toute l'app. Réinitialise pour reprendre la couleur du thème.</p>
+
+        <h3 class="section-header">Logo</h3>
+        <div class="settings-group">
+          <div class="value-row" id="set-logo-color-row">
+            <span>Couleur du logo</span><span class="value" id="set-logoColor"></span>
+          </div>
+        </div>
+        <p class="hint" id="logo-color-hint">Change le logo dans l'app et l'icône sur l'écran d'accueil.</p>
         <div style="height:32px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logo color picker -->
+  <div id="dialog-logo-color" class="dialog hidden" role="dialog" aria-modal="true">
+    <div class="dialog-box">
+      <h2>Couleur du logo</h2>
+      <div id="logo-color-list"></div>
+      <div class="dialog-actions">
+        <button class="btn-text" data-action="close-dialog">Fermer</button>
       </div>
     </div>
   </div>
@@ -306,6 +440,10 @@
             <span>Heure du rappel</span><span class="value" id="set-reminderHour"></span>
           </div>
         </div>
+
+        <h3 class="section-header">Réponses rapides</h3>
+        <div class="settings-group" id="set-quick-replies"></div>
+        <p class="hint">Ces réponses apparaissent comme boutons directement sur la notification de rappel — un tap suffit pour remplir le poste du jour, sans ouvrir l'app.</p>
         <div style="height:32px"></div>
       </div>
     </div>
@@ -327,6 +465,14 @@
           <div class="switch-row">
             <span>Début de semaine dimanche</span>
             <label class="switch"><input type="checkbox" id="set-weekStartSunday"><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <span>Vibration au toucher</span>
+            <label class="switch"><input type="checkbox" id="set-hapticFeedback"><span class="slider"></span></label>
+          </div>
+          <div class="switch-row">
+            <span>Confirmer avant d'effacer un jour</span>
+            <label class="switch"><input type="checkbox" id="set-confirmClearDay"><span class="slider"></span></label>
           </div>
         </div>
 
@@ -387,6 +533,30 @@
             <span>Libellé personnalisé congés</span><span class="value" id="set-congesLabel"></span>
           </div>
         </div>
+
+        <h3 class="section-header">Export XLSX</h3>
+        <div class="settings-group">
+          <div class="value-row hidden" id="btn-choose-xlsx-folder-native">
+            <span>Dossier d'export XLSX</span>
+            <div class="status-color-controls">
+              <button type="button" class="icon-btn small hidden" id="btn-reset-xlsx-folder" aria-label="Revenir à Téléchargements">↺</button>
+              <span class="value" id="set-native-xlsx-folder">Téléchargements (par défaut)</span>
+            </div>
+          </div>
+        </div>
+        <p class="hint">Choisis un dossier synchronisé (par ex. kDrive) pour que les fichiers XLSX exportés y soient enregistrés directement, au lieu de Téléchargements.</p>
+
+        <h3 class="section-header">Médias (photos & notes vocales)</h3>
+        <div class="settings-group">
+          <div class="value-row hidden" id="btn-choose-media-folder-native">
+            <span>Dossier médias</span>
+            <div class="status-color-controls">
+              <button type="button" class="icon-btn small hidden" id="btn-reset-media-folder" aria-label="Désactiver">↺</button>
+              <span class="value" id="set-native-media-folder">Non configuré</span>
+            </div>
+          </div>
+        </div>
+        <p class="hint">Requis pour attacher une photo ou une note vocale à un jour — choisis un dossier synchronisé (par ex. kDrive) : les fichiers n'occupent alors aucun espace permanent sur le téléphone.</p>
 
         <h3 class="section-header">Sauvegarde</h3>
         <div id="backup-status-banner" class="backup-status-banner hidden"></div>

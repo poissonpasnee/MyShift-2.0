@@ -9,6 +9,55 @@
   const MONTHS_FR = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin", "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
   const MONTHS_FR_SHORT = ["JANV", "FÉVR", "MARS", "AVR", "MAI", "JUIN", "JUIL", "AOÛT", "SEPT", "OCT", "NOV", "DÉC"];
 
+  // "Calendrier ferroviaire" app logo — id must match the activity-alias / drawable suffixes
+  // in the native wrapper (see AndroidManifest.xml's <activity-alias> entries and
+  // res/mipmap-anydpi-v26/ic_launcher_*.xml) so picking a color here can also flip the
+  // home-screen launcher icon via AndroidBridge.chooseLauncherIconColor.
+  const LOGO_COLORS = [
+    { id: "mint", label: "Vert menthe", hex: "#10B981" },
+    { id: "blue", label: "Bleu (original)", hex: "#3B82F6" },
+    { id: "indigo", label: "Indigo", hex: "#6366F1" },
+    { id: "violet", label: "Violet", hex: "#A855F7" },
+    { id: "pink", label: "Rose", hex: "#EC4899" },
+    { id: "orange", label: "Orange", hex: "#F97316" },
+    { id: "yellow", label: "Jaune", hex: "#FACC15" },
+    { id: "red", label: "Rouge", hex: "#EF4444" },
+    { id: "cyan", label: "Cyan", hex: "#06B6D4" },
+    { id: "gray", label: "Gris", hex: "#64748B" }
+  ];
+
+  // Same glyph as the native ic_launcher_foreground.xml (calendar + converging rails),
+  // reproduced as inline SVG so it can be recolored freely for in-app use — the "today" cell
+  // is tinted to match here (the shared Android drawable keeps it neutral to avoid needing
+  // 10 separate foreground resources, a tradeoff that doesn't apply to inline SVG).
+  function logoSvg(hex, size) {
+    const s = size || 40;
+    return `<svg width="${s}" height="${s}" viewBox="0 0 108 108" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="108" height="108" rx="24" fill="${hex}"/>
+      <path stroke="#1E293B" stroke-width="3.4" stroke-linecap="round" d="M18,90 L90,90"/>
+      <path stroke="#1E293B" stroke-width="3.4" stroke-linecap="round" d="M24,82 L84,82"/>
+      <path stroke="#1E293B" stroke-width="3.4" stroke-linecap="round" d="M29,74 L79,74"/>
+      <path stroke="#1E293B" stroke-width="3.4" stroke-linecap="round" d="M35,66 L74,66"/>
+      <path stroke="#1E293B" stroke-width="4.2" stroke-linecap="round" d="M14,96 L41,57"/>
+      <path stroke="#1E293B" stroke-width="4.2" stroke-linecap="round" d="M94,96 L67,57"/>
+      <path fill="#475569" d="M37,30 h5 a2.5,2.5 0 0 1 2.5,2.5 v8 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-8 a2.5,2.5 0 0 1 2.5,-2.5 z"/>
+      <path fill="#475569" d="M64,30 h5 a2.5,2.5 0 0 1 2.5,2.5 v8 a2.5,2.5 0 0 1 -2.5,2.5 h-5 a2.5,2.5 0 0 1 -2.5,-2.5 v-8 a2.5,2.5 0 0 1 2.5,-2.5 z"/>
+      <path fill="#FFFFFF" d="M27,38 h54 a6,6 0 0 1 6,6 v34 a6,6 0 0 1 -6,6 h-54 a6,6 0 0 1 -6,-6 v-34 a6,6 0 0 1 6,-6 z"/>
+      <path fill="#CBD5E1" d="M27,38 h54 a6,6 0 0 1 6,6 v5 h-66 v-5 a6,6 0 0 1 6,-6 z"/>
+      <path fill="#E2E8F0" d="M33,53 h8 v8 h-8 z"/>
+      <path fill="#E2E8F0" d="M44,53 h8 v8 h-8 z"/>
+      <path fill="${hex}" d="M55,53 h8 v8 h-8 z"/>
+      <path fill="#E2E8F0" d="M66,53 h8 v8 h-8 z"/>
+      <path fill="#E2E8F0" d="M33,64 h8 v8 h-8 z"/>
+      <path fill="#E2E8F0" d="M44,64 h8 v8 h-8 z"/>
+      <path fill="#E2E8F0" d="M55,64 h8 v8 h-8 z"/>
+      <path fill="#E2E8F0" d="M66,64 h8 v8 h-8 z"/>
+    </svg>`;
+  }
+  function logoColorInfo(id) {
+    return LOGO_COLORS.find((c) => c.id === id) || LOGO_COLORS[1];
+  }
+
   // ---------------------------------------------------------------------
   // Date / YearMonth helpers
   // ---------------------------------------------------------------------
@@ -39,10 +88,14 @@
     const dt = new Date(y, m - 1, d + delta);
     return dstr(dt.getFullYear(), dt.getMonth() + 1, dt.getDate());
   }
-  function mondayOf(dateStr) {
+  // Start of the calendar week containing dateStr — Sunday if Réglages > Calendrier >
+  // "Début de semaine dimanche" is on, Monday otherwise (e.g. weekStartSunday=true on
+  // 2026-09-08 (mardi) returns 2026-09-06, a Sunday; weekStartSunday=false returns
+  // 2026-09-07, the Monday).
+  function weekStartOf(dateStr) {
     const [y, m, d] = dateStr.split("-").map(Number);
     const dow = new Date(y, m - 1, d).getDay(); // 0=dimanche..6=samedi
-    const delta = dow === 0 ? -6 : 1 - dow;
+    const delta = state.settings.weekStartSunday ? -dow : (dow === 0 ? -6 : 1 - dow);
     return dstr_addDays(dateStr, delta);
   }
   function weekRangeLabel(weekStart) {
@@ -66,13 +119,80 @@
     xlsxMode: "monthly",
     xlsxMonth: null,
     xlsxYear: null,
+    xlsxCustomStart: null,
+    xlsxCustomEnd: null,
     pickerYear: null
   };
-  state.currentWeekStart = mondayOf(todayStr());
+  state.currentWeekStart = weekStartOf(todayStr());
 
   function shiftColors() {
-    return Palettes.shiftColors(state.settings.colorPalette, state.settings.darkTheme);
+    const base = Palettes.shiftColors(state.settings.colorPalette, state.settings.darkTheme);
+    const custom = state.settings.customStatusColors || {};
+    const colors = Object.assign({}, base);
+    STATUSES.forEach((status) => { if (custom[status]) colors[status] = custom[status]; });
+    return colors;
   }
+
+  // Short vibration for paint/long-press feedback — no-ops if the setting is off or the
+  // WebView doesn't expose navigator.vibrate (manifest grants VIBRATE for this specifically).
+  function haptic(ms) {
+    if (state.settings.hapticFeedback && navigator.vibrate) navigator.vibrate(ms || 10);
+  }
+
+  // ---------------------------------------------------------------------
+  // Native reminder bridge (Reminders.kt / ReminderReceiver in the Android wrapper) — a
+  // plain WebView Notification only fires while this page is open, so the actual daily
+  // alarm lives in native code via AlarmManager. These two calls are how it stays in sync
+  // with the "Rappels quotidiens" setting and with whether today's shift is filled in,
+  // since only this page can read either from localStorage. No-ops outside the wrapper
+  // (e.g. testing in a desktop browser), where window.AndroidBridge doesn't exist.
+  // ---------------------------------------------------------------------
+  function syncReminderConfigToNative() {
+    if (window.AndroidBridge && window.AndroidBridge.setReminderConfig) {
+      window.AndroidBridge.setReminderConfig(!!state.settings.reminderEnabled, state.settings.reminderHour);
+    }
+  }
+  function syncTodayFilledToNative() {
+    if (window.AndroidBridge && window.AndroidBridge.setTodayFilled) {
+      window.AndroidBridge.setTodayFilled(!!Storage.getEntry(todayStr()));
+    }
+  }
+  function syncQuickRepliesToNative() {
+    if (window.AndroidBridge && window.AndroidBridge.setQuickReplies) {
+      window.AndroidBridge.setQuickReplies(JSON.stringify(state.settings.quickReplies || []));
+    }
+  }
+
+  // Called by MainActivity.kt once the WebView has (re)loaded, if a notification quick-reply
+  // action was tapped while the app wasn't open — the native side can't touch localStorage
+  // directly, so it just remembers the choice and asks the page to apply it on next load.
+  window.applyPendingQuickReply = function (status, toll) {
+    const peages = Storage.getPeages();
+    const tolls = (toll > 0 && peages[0]) ? { [peages[0].id]: toll } : {};
+    const existing = Storage.getEntry(todayStr());
+    Storage.saveEntry(todayStr(), status, null, null, tolls, existing && existing.photoUri, existing && existing.audioUri);
+    renderAll();
+    showToast("Poste enregistré depuis la notification");
+  };
+
+  // Called by MainActivity.kt after the user picks a folder (Storage Access Framework) for
+  // backups / XLSX exports / day media. setSetting() alone only touches localStorage — these
+  // also refresh app.js's in-memory state.settings, otherwise the next unrelated settings
+  // re-render would overwrite the just-picked folder's display with the stale prior value,
+  // and (for media) the photo/note-vocale UI would stay gated as "not configured" forever.
+  window.onBackupFolderChosen = function (folderName) {
+    state.settings = Storage.setSetting("nativeBackupFolderName", folderName);
+    renderSettingsValues();
+  };
+  window.onXlsxFolderChosen = function (folderName) {
+    state.settings = Storage.setSetting("nativeXlsxFolderName", folderName);
+    renderSettingsValues();
+  };
+  window.onMediaFolderChosen = function (folderName) {
+    state.settings = Storage.setSetting("nativeMediaFolderName", folderName);
+    renderSettingsValues();
+    if (state.editingDate) renderEditDayMedia();
+  };
 
   // ---------------------------------------------------------------------
   // Theme application
@@ -83,6 +203,19 @@
     const tones = Palettes.paletteTones(state.settings.colorPalette, state.settings.darkTheme);
     document.documentElement.style.setProperty("--color-primary", tones.primary);
     document.documentElement.style.setProperty("--color-on-primary", Palettes.contrastingTextColor(tones.primary));
+    if (state.settings.customTextColor) {
+      document.documentElement.style.setProperty("--on-surface", state.settings.customTextColor);
+    } else {
+      document.documentElement.style.removeProperty("--on-surface");
+    }
+  }
+
+  // Every in-app spot the "Calendrier ferroviaire" logo appears — currently just the menu
+  // footer, but centralized so a future placement only needs adding an id here.
+  function renderLogo() {
+    const hex = logoColorInfo(state.settings.logoColor).hex;
+    const el = document.getElementById("drawer-footer-icon");
+    if (el) el.innerHTML = logoSvg(hex, 56);
   }
 
   // ---------------------------------------------------------------------
@@ -233,11 +366,9 @@
     const selectedEntry = Storage.getEntry(state.selectedDate);
     const selectedInThisMonth = ymOf(state.selectedDate).y === ym.y && ymOf(state.selectedDate).m === ym.m;
 
-    const statItems = [
-      ["jour", "☀️"], ["nuit", "🌙"], ["mn", "⬆️"], ["repos", "☕"], ["conges", "✈️"]
-    ].map(([status, icon]) => `
+    const statItems = STATUSES.map((status) => `
       <div class="stat-item">
-        <div class="stat-top"><span>${icon}</span><span>${STATUS_LABEL[status]}</span></div>
+        <div class="stat-top"><span>${Icons.icon(STATUS_ICON[status], 16)}</span><span>${STATUS_LABEL[status]}</span></div>
         <div class="stat-count" style="color:${colors[status]}">${stats[status] || 0}</div>
       </div>
     `).join("");
@@ -273,15 +404,17 @@
   function renderRingHeader(ym) {
     const { total, toll, entries } = monthData(ym);
     const bonus = Storage.getBonuses()[ymKey(ym.y, ym.m)] || 0;
+    const realSalary = Storage.getRealSalaries()[ymKey(ym.y, ym.m)];
     const totalDays = daysInMonth(ym.y, ym.m);
     const filled = entries.length;
     const r = 21;
     const circ = 2 * Math.PI * r;
     const progress = totalDays > 0 ? Math.min(filled / totalDays, 1) : 0;
-    const colorPrimary = shiftColors().jour ? "var(--color-primary)" : "var(--color-primary)";
     const otherMode = state.settings.viewMode === "month" ? "week" : "month";
     const toggleIcon = otherMode === "month" ? "📊" : "📋";
     const toggleLabel = otherMode === "month" ? "Mois" : "Semaine";
+    const realHtml = realSalary != null
+      ? `<span class="ring-header-real">réel : ${formatEuro(realSalary)}</span>` : "";
     return `
       <div class="ring-header">
         <svg width="52" height="52" viewBox="0 0 52 52">
@@ -292,7 +425,9 @@
         </svg>
         <div class="ring-header-info">
           <div class="ring-header-sub">${monthLabel(ym)} · ${filled}/${totalDays} postes</div>
-          <div class="ring-header-amount">${formatEuro(total + bonus)}</div>
+          <button type="button" class="ring-header-amount-btn" id="btn-edit-real-salary" data-ym="${ymKey(ym.y, ym.m)}">
+            <span class="ring-header-amount">${formatEuro(total + bonus)}</span><span class="ring-header-brut">brut</span>${realHtml}
+          </button>
         </div>
         <button class="ring-toggle-btn" id="btn-toggle-view">${toggleIcon} ${toggleLabel}</button>
       </div>`;
@@ -306,23 +441,31 @@
     const dowLabel = ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"][dow];
     const dayNum = Number(dateStr.split("-")[2]);
     const isSelected = dateStr === state.selectedDate;
-    let bg = "var(--surface-variant)", statusColor = "var(--on-surface-variant)", statusText = "Vide, à remplir", gainText = "";
+    const isToday = dateStr === todayStr();
+    // Text is always plain black or white (contrastingTextColor), never the vivid status
+    // hue — a colored letter on a colored tinted background is unreadable in some
+    // combos, so only the row background carries the status color.
+    let bg = "var(--surface-variant)", textColor = null, statusText = "Vide, à remplir", tollText = "";
     if (entry) {
       const vivid = colors[entry.status];
       bg = mixWithSurfaceVariant(vivid, entry.status === "repos" || entry.status === "conges" ? 0.14 : 0.22);
-      statusColor = vivid;
+      textColor = Palettes.contrastingTextColor(bg);
       statusText = STATUS_LABEL_LONG[entry.status];
       if (entry.status === "jour") statusText += " · " + (s.horaireJour || "");
       if (entry.status === "nuit") statusText += " · " + (s.horaireNuit || "");
-      if (entry.status === "jour" || entry.status === "nuit" || entry.status === "mn") {
-        const t = Storage.tollTotalsForEntry(entry, Storage.getPeages());
-        gainText = formatEuro(rateFor(entry.status) + t.amount);
+      const peages = Storage.getPeages();
+      if (peages.length > 0 && (entry.status === "jour" || entry.status === "nuit" || entry.status === "mn")) {
+        const tollCount = Storage.tollTotalsForEntry(entry, peages).count;
+        tollText = tollCount > 0 ? `🛣️ Péage${tollCount > 1 ? " ×" + tollCount : ""}` : "🛣️ Pas de péage";
       }
     }
-    return `<div class="day-cell day-row${isSelected ? " selected" : ""}" style="background:${bg}" data-date="${dateStr}">
-      <div class="dow-num"><span class="dow" style="color:${entry ? statusColor : "var(--on-surface-variant)"}">${dowLabel}</span><span class="num" style="color:var(--on-surface)">${dayNum}</span></div>
+    const dowColor = textColor || "var(--on-surface-variant)";
+    const numColor = textColor || "var(--on-surface)";
+    const statusColor = textColor || "var(--on-surface-variant)";
+    return `<div class="day-cell day-row${isSelected ? " selected" : ""}${isToday ? " today" : ""}" style="background:${bg}" data-date="${dateStr}">
+      <div class="dow-num"><span class="dow" style="color:${dowColor}">${dowLabel}</span><span class="num${isToday ? " today-num" : ""}" style="color:${numColor}">${dayNum}</span></div>
       <div class="status-text" style="color:${statusColor}">${statusText}</div>
-      ${gainText ? `<div class="gain-text" style="color:${statusColor}">${gainText}</div>` : ""}
+      ${tollText ? `<div class="toll-text" style="color:${statusColor}">${tollText}</div>` : ""}
     </div>`;
   }
 
@@ -330,62 +473,49 @@
     const weekStart = state.currentWeekStart;
     const ym = ymOf(weekStart);
     document.getElementById("btn-month-label").textContent = weekRangeLabel(weekStart);
-    let total = 0;
-    const peages = Storage.getPeages();
+    const colors = shiftColors();
+    const stats = { jour: 0, nuit: 0, mn: 0, repos: 0, conges: 0 };
     let rowsHtml = "";
     for (let i = 0; i < 7; i++) {
       const d = dstr_addDays(weekStart, i);
       const entry = Storage.getEntry(d);
-      if (entry && (entry.status === "jour" || entry.status === "nuit" || entry.status === "mn")) {
-        total += rateFor(entry.status) + Storage.tollTotalsForEntry(entry, peages).amount;
-      }
+      if (entry && stats[entry.status] !== undefined) stats[entry.status]++;
       rowsHtml += dayRowHtml(d);
     }
+    const totalItems = STATUSES.map((status) => `
+      <div class="week-total-item">
+        <span class="week-total-count" style="color:${colors[status]}">${stats[status] || 0}</span>
+        <span class="week-total-label">${STATUS_LETTER[status]}</span>
+      </div>
+    `).join("");
     const pager = document.getElementById("pager");
     pager.innerHTML = renderRingHeader(ym) +
       `<div class="week-list">${rowsHtml}</div>
-      <div class="week-total-row"><span>Total semaine</span><span class="value">${formatEuro(total)}</span></div>`;
+      <div class="week-total-row">
+        <span class="week-total-title">Total semaine</span>
+        <div class="week-total-items">${totalItems}</div>
+      </div>`;
   }
 
-  function renderMonthRailView() {
+  function renderMonthGridView() {
     const ym = state.currentMonth;
     document.getElementById("btn-month-label").textContent = monthLabel(ym);
-    const entriesMap = Storage.getEntriesMap();
-    const colors = shiftColors();
-    const days = buildDaysGrid(ym);
-    const rows = [];
-    for (let i = 0; i < days.length; i += 7) rows.push(days.slice(i, i + 7));
-    const today = todayStr();
-
-    const weeksHtml = rows.map((row) => {
-      const stations = row.map((cell) => {
-        const entry = entriesMap[cell.date];
-        const isToday = cell.date === today;
-        let bg = "var(--outline-variant)", fg = "var(--on-surface-variant)";
-        if (entry) {
-          bg = mixWithSurfaceVariant(colors[entry.status], 0.9);
-          fg = Palettes.contrastingTextColor(bg);
-        }
-        const dayNum = Number(cell.date.split("-")[2]);
-        const size = isToday ? 30 : 26;
-        return `<button type="button" class="rail-station day-cell" data-date="${cell.date}" style="opacity:${cell.otherMonth ? 0.35 : 1}">
-          <div class="rail-dot" style="width:${size}px;height:${size}px;background:${bg};color:${fg};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;${isToday ? "box-shadow:0 0 0 2px var(--color-primary);" : ""}">${dayNum}</div>
-        </button>`;
-      }).join("");
-      return `<div class="rail-week-row"><div class="rail-line-bg"></div><div class="rail-stations">${stations}</div></div>`;
-    }).join("");
-
     const pager = document.getElementById("pager");
-    pager.innerHTML = renderRingHeader(ym) + weeksHtml + renderSummaryCard(ym);
+    pager.innerHTML = renderRingHeader(ym) + renderCalendar(ym) + renderSummaryCard(ym);
   }
 
   function renderMonth() {
     const pager = document.getElementById("pager");
-    if (state.settings.viewMode === "month") renderMonthRailView();
+    if (state.settings.viewMode === "month") renderMonthGridView();
     else renderWeekView();
     pager.style.animation = "none";
     void pager.offsetWidth;
     pager.style.animation = "";
+    const isCurrentPeriod = state.settings.viewMode === "month"
+      ? (state.currentMonth.y === ymOf(todayStr()).y && state.currentMonth.m === ymOf(todayStr()).m)
+      : state.currentWeekStart === weekStartOf(todayStr());
+    document.getElementById("btn-today").classList.toggle("invisible", isCurrentPeriod);
+    syncTodayFilledToNative();
   }
 
   // ---------------------------------------------------------------------
@@ -395,10 +525,12 @@
     const colors = shiftColors();
     const grid = document.getElementById("action-grid");
     grid.innerHTML = STATUSES.map((status) => {
-      const bg = colors[status];
-      const fg = Palettes.contrastingTextColor(bg);
+      const vivid = colors[status];
       const active = state.paintStatus === status;
-      return `<button type="button" class="action-btn${active ? " active" : ""}" style="background:${bg};color:${fg}" data-status="${status}">
+      const bg = mixWithSurfaceVariant(vivid, active ? 0.34 : 0.2);
+      const fg = Palettes.contrastingTextColor(bg);
+      const ring = active ? `box-shadow:inset 0 0 0 2px ${vivid};` : "";
+      return `<button type="button" class="action-btn${active ? " active" : ""}" style="background:${bg};color:${fg};${ring}" data-status="${status}">
         <span class="icon">${Icons.icon(STATUS_ICON[status], 22)}</span>
         <span class="label">${STATUS_LABEL_LONG[status]}</span>
       </button>`;
@@ -421,6 +553,7 @@
     renderMonth();
     renderActionGrid();
     renderPaintBanner();
+    renderLogo();
   }
 
   // ---------------------------------------------------------------------
@@ -453,36 +586,51 @@
   // Drawer
   // ---------------------------------------------------------------------
   const drawer = document.getElementById("drawer");
-  const overlay = document.getElementById("overlay");
   function openDrawer() {
     const ym = state.settings.viewMode === "month" ? state.currentMonth : ymOf(state.currentWeekStart);
     const { total, stats } = monthData(ym);
     const bonus = Storage.getBonuses()[ymKey(ym.y, ym.m)] || 0;
+    const realSalary = Storage.getRealSalaries()[ymKey(ym.y, ym.m)];
     const worked = stats.jour + stats.nuit + stats.mn;
     document.getElementById("drawer-summary-month").textContent = monthLabel(ym);
     document.getElementById("drawer-summary-amount").textContent = formatEuro(total + bonus);
+    document.getElementById("drawer-summary-real").textContent = realSalary != null ? `réel : ${formatEuro(realSalary)}` : "";
+    document.getElementById("btn-drawer-edit-real-salary").dataset.ym = ymKey(ym.y, ym.m);
     document.getElementById("drawer-summary-details").textContent = `${worked} poste${worked > 1 ? "s" : ""}`;
-    drawer.classList.remove("hidden");
-    drawer.classList.add("open");
-    overlay.classList.remove("hidden");
-    requestAnimationFrame(() => overlay.classList.add("visible"));
+    openDialog("drawer");
   }
-  function closeDrawer() {
-    drawer.classList.remove("open");
-    overlay.classList.remove("visible");
-    setTimeout(() => {
-      overlay.classList.add("hidden");
-      drawer.classList.add("hidden");
-    }, 200);
-  }
-  overlay.addEventListener("click", closeDrawer);
+  function closeDrawer() { closeDialog("drawer"); }
+  document.getElementById("btn-drawer-edit-real-salary").addEventListener("click", (e) => {
+    openRealSalaryDialog(ymFromKey(e.currentTarget.dataset.ym));
+  });
+
+  // ---------------------------------------------------------------------
+  // Android hardware back button (called from MainActivity.kt's onBackPressed).
+  // Closes whatever overlay is currently on top instead of exiting the app; returns
+  // false when there's nothing open so native code can fall back to its own behavior
+  // (double-press-to-exit on the calendar).
+  // ---------------------------------------------------------------------
+  window.handleAndroidBack = function () {
+    const openOverlays = document.querySelectorAll(".dialog:not(.hidden)");
+    const top = openOverlays[openOverlays.length - 1];
+    if (!top) return false;
+    if (top.id === "dialog-edit-day") applyEditDay();
+    top.classList.add("hidden");
+    if (/^dialog-settings-/.test(top.id)) renderSettingsOverview();
+    return true;
+  };
 
   // ---------------------------------------------------------------------
   // Day click / long-press
   // ---------------------------------------------------------------------
   function applyPaint(dateStr, status) {
     const existing = Storage.getEntry(dateStr);
-    Storage.saveEntry(dateStr, status, existing ? existing.ctype : null, existing ? existing.note : null, existing ? existing.tolls : {});
+    Storage.saveEntry(
+      dateStr, status,
+      existing ? existing.ctype : null, existing ? existing.note : null, existing ? existing.tolls : {},
+      existing ? existing.photoUri : null, existing ? existing.audioUri : null
+    );
+    haptic(10);
   }
 
   function handleDayClick(dateStr) {
@@ -511,6 +659,284 @@
     }).join("");
   }
 
+  // ---------------------------------------------------------------------
+  // Day media (photo / voice note) — files live only in the user-chosen media folder
+  // (see AndroidBridge.saveMediaFile), never in localStorage; only the filename is kept
+  // in the entry, resolved back to a content:// URI via AndroidBridge.getMediaUri.
+  // ---------------------------------------------------------------------
+  function mediaFolderConfigured() {
+    return !!(window.AndroidBridge && window.AndroidBridge.saveMediaFile && state.settings.nativeMediaFolderName);
+  }
+
+  function resetAudioPlayerUI() {
+    const audioEl = document.getElementById("edit-day-audio-el");
+    audioEl.pause();
+    audioEl.currentTime = 0;
+    document.getElementById("audio-play-btn").textContent = "▶️";
+    document.getElementById("audio-progress-fill").style.width = "0%";
+    document.getElementById("audio-time").textContent = "0:00";
+  }
+
+  function renderEditDayMedia() {
+    const hasFolder = mediaFolderConfigured();
+    document.getElementById("edit-day-media-nofolder-photo").classList.toggle("hidden", hasFolder);
+    document.getElementById("edit-day-media-nofolder-audio").classList.toggle("hidden", hasFolder);
+    document.getElementById("edit-day-media-photo").classList.toggle("hidden", !hasFolder);
+    document.getElementById("edit-day-media-audio").classList.toggle("hidden", !hasFolder);
+    if (!hasFolder) return;
+
+    const photoEmpty = document.getElementById("edit-day-photo-empty");
+    const photoPreview = document.getElementById("edit-day-photo-preview");
+    if (state.editingPhotoUri) {
+      document.getElementById("edit-day-photo-img").src = state.editingPhotoUri;
+      photoEmpty.classList.add("hidden");
+      photoPreview.classList.remove("hidden");
+    } else {
+      photoEmpty.classList.remove("hidden");
+      photoPreview.classList.add("hidden");
+    }
+
+    const audioEmpty = document.getElementById("edit-day-audio-empty");
+    const audioPlayer = document.getElementById("edit-day-audio-player");
+    const audioEl = document.getElementById("edit-day-audio-el");
+    resetAudioPlayerUI();
+    if (state.editingAudioUri) {
+      audioEl.src = state.editingAudioUri;
+      audioEmpty.classList.add("hidden");
+      audioPlayer.classList.remove("hidden");
+    } else {
+      audioEl.removeAttribute("src");
+      audioEmpty.classList.remove("hidden");
+      audioPlayer.classList.add("hidden");
+    }
+  }
+
+  // Persists the media reference right away (the file itself is already written natively
+  // by the time this runs) instead of waiting for "Appliquer" — losing the link because the
+  // user just backed out of the dialog would orphan a file that's otherwise saved fine.
+  function persistEditingMediaNow() {
+    if (!state.editingDate) return;
+    const dialog = document.getElementById("dialog-edit-day");
+    const status = dialog.dataset.status;
+    const ctype = dialog.dataset.ctype || null;
+    const note = document.getElementById("edit-day-note").value.trim();
+    Storage.saveEntry(state.editingDate, status, ctype, note || null, state.editingTolls || {}, state.editingPhotoUri, state.editingAudioUri);
+    renderMonth();
+  }
+
+  // Shared by the live camera shutter and the gallery picker — both hand this a drawable
+  // (a <video> frame or a loaded <img>) plus its natural size, and get back a downscaled
+  // JPEG data URL. Capping the size here (not just relying on getUserMedia's own "ideal"
+  // constraint, which cameras aren't required to honor, and gallery photos can be full-res)
+  // keeps every saved photo comfortably under the WebView JS-bridge's ~1MB Binder ceiling.
+  function drawableToJpegDataUrl(source, sourceWidth, sourceHeight, maxDim, quality) {
+    let w = sourceWidth, h = sourceHeight;
+    if (w > maxDim || h > maxDim) {
+      if (w > h) { h = Math.round((h * maxDim) / w); w = maxDim; } else { w = Math.round((w * maxDim) / h); h = maxDim; }
+    }
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(source, 0, 0, w, h);
+    return canvas.toDataURL("image/jpeg", quality);
+  }
+
+  function savePhotoDataUrl(dataUrl) {
+    if (!state.editingDate) return;
+    const base64 = dataUrl.split(",")[1] || "";
+    const filename = `${state.editingDate}-photo.jpg`;
+    const uri = window.AndroidBridge.saveMediaFile(state.editingPhotoUri || "", filename, "image/jpeg", base64);
+    if (!uri) { showToast("Échec de l'ajout de la photo"); return; }
+    state.editingPhotoUri = uri;
+    persistEditingMediaNow();
+    renderEditDayMedia();
+  }
+
+  function saveAudioBlob(blob, mimeType) {
+    if (!state.editingDate) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = String(reader.result).split(",")[1] || "";
+      const ext = mimeType.indexOf("ogg") >= 0 ? "ogg" : mimeType.indexOf("mp4") >= 0 ? "m4a" : "webm";
+      const filename = `${state.editingDate}-audio.${ext}`;
+      const uri = window.AndroidBridge.saveMediaFile(state.editingAudioUri || "", filename, mimeType, base64);
+      if (!uri) { showToast("Échec de l'ajout de la note vocale"); return; }
+      state.editingAudioUri = uri;
+      persistEditingMediaNow();
+      renderEditDayMedia();
+    };
+    reader.onerror = () => showToast("Échec de l'ajout de la note vocale");
+    reader.readAsDataURL(blob);
+  }
+
+  // ---------------------------------------------------------------------
+  // In-app camera (photo) — a live getUserMedia() preview inside MyShift itself, rather
+  // than handing off to the phone's separate camera app. WebChromeClient.onPermissionRequest
+  // in MainActivity.kt is what actually lets this succeed (it checks the OS-level CAMERA
+  // permission requested at startup).
+  // ---------------------------------------------------------------------
+  let cameraStream = null;
+
+  function openCameraCapture() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast("Caméra non disponible sur cet appareil");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1600 } }, audio: false })
+      .then((stream) => {
+        cameraStream = stream;
+        document.getElementById("camera-video").srcObject = stream;
+        openDialog("dialog-camera");
+      })
+      .catch(() => showToast("Impossible d'accéder à l'appareil photo"));
+  }
+  function closeCameraCapture() {
+    if (cameraStream) { cameraStream.getTracks().forEach((t) => t.stop()); cameraStream = null; }
+    closeDialog("dialog-camera");
+  }
+  document.getElementById("btn-add-photo").addEventListener("click", openCameraCapture);
+  document.getElementById("camera-cancel").addEventListener("click", closeCameraCapture);
+  document.getElementById("camera-shutter").addEventListener("click", () => {
+    const video = document.getElementById("camera-video");
+    const dataUrl = drawableToJpegDataUrl(video, video.videoWidth, video.videoHeight, 1600, 0.85);
+    closeCameraCapture();
+    savePhotoDataUrl(dataUrl);
+  });
+
+  // Attaching an existing photo instead of taking a new one — reuses the same
+  // onShowFileChooser bridge already in place for CSV/JSON import, so no new native code
+  // is needed to open the system gallery/picker.
+  document.getElementById("btn-pick-photo").addEventListener("click", () => {
+    document.getElementById("gallery-photo-input").click();
+  });
+  document.getElementById("gallery-photo-input").addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file || !state.editingDate) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        savePhotoDataUrl(drawableToJpegDataUrl(img, img.naturalWidth, img.naturalHeight, 1600, 0.82));
+      };
+      img.onerror = () => showToast("Impossible de lire cette image");
+      img.src = reader.result;
+    };
+    reader.onerror = () => showToast("Impossible de lire cette image");
+    reader.readAsDataURL(file);
+  });
+
+  // ---------------------------------------------------------------------
+  // In-app voice-note recorder — MediaRecorder over a getUserMedia() mic stream, same
+  // rationale as the camera above: stays inside MyShift instead of the system recorder.
+  // ---------------------------------------------------------------------
+  let voiceRecorder = null, voiceChunks = [], voiceStream = null, voiceTimerId = null, voiceStartedAt = 0;
+
+  function startVoiceRecording() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+      showToast("Enregistrement audio non disponible sur cet appareil");
+      return;
+    }
+    navigator.mediaDevices.getUserMedia({ audio: true })
+      .then((stream) => {
+        voiceStream = stream;
+        voiceChunks = [];
+        voiceRecorder = new MediaRecorder(stream);
+        voiceRecorder.addEventListener("dataavailable", (e) => { if (e.data.size > 0) voiceChunks.push(e.data); });
+        voiceRecorder.start();
+        voiceStartedAt = Date.now();
+        document.getElementById("voice-recorder-dot").classList.add("recording");
+        document.getElementById("voice-recorder-toggle").textContent = "■ Arrêter";
+        voiceTimerId = setInterval(() => {
+          const s = Math.floor((Date.now() - voiceStartedAt) / 1000);
+          document.getElementById("voice-recorder-time").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+        }, 250);
+      })
+      .catch(() => showToast("Impossible d'accéder au micro"));
+  }
+  function stopVoiceRecording(shouldSave) {
+    clearInterval(voiceTimerId);
+    document.getElementById("voice-recorder-dot").classList.remove("recording");
+    const recorder = voiceRecorder;
+    voiceRecorder = null;
+    if (!recorder) { closeDialog("dialog-voice-recorder"); return; }
+    const mimeType = recorder.mimeType || "audio/webm";
+    recorder.addEventListener("stop", () => {
+      if (voiceStream) { voiceStream.getTracks().forEach((t) => t.stop()); voiceStream = null; }
+      closeDialog("dialog-voice-recorder");
+      if (shouldSave && voiceChunks.length > 0) saveAudioBlob(new Blob(voiceChunks, { type: mimeType }), mimeType);
+    });
+    if (recorder.state !== "inactive") recorder.stop();
+  }
+  document.getElementById("btn-add-audio").addEventListener("click", () => {
+    document.getElementById("voice-recorder-time").textContent = "0:00";
+    document.getElementById("voice-recorder-dot").classList.remove("recording");
+    document.getElementById("voice-recorder-toggle").textContent = "● Enregistrer";
+    openDialog("dialog-voice-recorder");
+  });
+  document.getElementById("voice-recorder-cancel").addEventListener("click", () => stopVoiceRecording(false));
+  document.getElementById("voice-recorder-toggle").addEventListener("click", () => {
+    if (voiceRecorder && voiceRecorder.state === "recording") stopVoiceRecording(true);
+    else startVoiceRecording();
+  });
+
+  document.getElementById("btn-remove-photo").addEventListener("click", () => {
+    if (!state.editingPhotoUri) return;
+    if (window.AndroidBridge && window.AndroidBridge.deleteMediaFile) window.AndroidBridge.deleteMediaFile(state.editingPhotoUri);
+    state.editingPhotoUri = null;
+    persistEditingMediaNow();
+    renderEditDayMedia();
+  });
+  document.getElementById("btn-remove-audio").addEventListener("click", () => {
+    if (!state.editingAudioUri) return;
+    if (window.AndroidBridge && window.AndroidBridge.deleteMediaFile) window.AndroidBridge.deleteMediaFile(state.editingAudioUri);
+    state.editingAudioUri = null;
+    persistEditingMediaNow();
+    renderEditDayMedia();
+  });
+
+  document.getElementById("edit-day-photo-img").addEventListener("click", (e) => {
+    document.getElementById("photo-viewer-img").src = e.target.src;
+    openDialog("dialog-photo-viewer");
+  });
+
+  // Custom audio player — a bare <audio controls> looks out of place next to the rest of
+  // the app's styling, so the real <audio> element stays hidden and this drives a small
+  // play/pause + progress bar UI instead.
+  (function setupAudioPlayer() {
+    const audioEl = document.getElementById("edit-day-audio-el");
+    const playBtn = document.getElementById("audio-play-btn");
+    const fill = document.getElementById("audio-progress-fill");
+    const timeLabel = document.getElementById("audio-time");
+    const track = document.querySelector(".audio-progress");
+    function formatTime(s) {
+      if (!isFinite(s) || s < 0) return "0:00";
+      const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+      return `${m}:${String(sec).padStart(2, "0")}`;
+    }
+    playBtn.addEventListener("click", () => {
+      if (audioEl.paused) audioEl.play(); else audioEl.pause();
+    });
+    audioEl.addEventListener("play", () => { playBtn.textContent = "⏸️"; });
+    audioEl.addEventListener("pause", () => { playBtn.textContent = "▶️"; });
+    audioEl.addEventListener("ended", () => {
+      playBtn.textContent = "▶️";
+      audioEl.currentTime = 0;
+      fill.style.width = "0%";
+      timeLabel.textContent = "0:00";
+    });
+    audioEl.addEventListener("timeupdate", () => {
+      const pct = audioEl.duration ? (audioEl.currentTime / audioEl.duration) * 100 : 0;
+      fill.style.width = pct + "%";
+      timeLabel.textContent = formatTime(audioEl.currentTime);
+    });
+    track.addEventListener("click", (e) => {
+      if (!audioEl.duration) return;
+      const rect = track.getBoundingClientRect();
+      audioEl.currentTime = ((e.clientX - rect.left) / rect.width) * audioEl.duration;
+    });
+  })();
+
   function openEditDialogForDate(dateStr) {
     state.editingDate = dateStr;
     const entry = Storage.getEntry(dateStr);
@@ -521,6 +947,9 @@
     document.getElementById("dialog-edit-day").dataset.ctype = (entry && entry.ctype) || "";
     state.editingTolls = Object.assign({}, (entry && entry.tolls) || {});
     renderEditDayTolls(state.editingTolls);
+    state.editingPhotoUri = (entry && entry.photoUri) || null;
+    state.editingAudioUri = (entry && entry.audioUri) || null;
+    renderEditDayMedia();
     openDialog("dialog-edit-day");
   }
 
@@ -530,8 +959,9 @@
     const status = dialog.dataset.status;
     const ctype = dialog.dataset.ctype || null;
     const note = document.getElementById("edit-day-note").value.trim();
-    Storage.saveEntry(state.editingDate, status, ctype, note || null, state.editingTolls || {});
+    Storage.saveEntry(state.editingDate, status, ctype, note || null, state.editingTolls || {}, state.editingPhotoUri, state.editingAudioUri);
     state.editingDate = null;
+    document.getElementById("edit-day-audio-el").pause();
     renderMonth();
   }
 
@@ -566,6 +996,7 @@
       startX = e.clientX; startY = e.clientY;
       timer = setTimeout(() => {
         longPressed = true;
+        haptic(20);
         openEditDialogForDate(activeDate);
       }, 480);
     });
@@ -593,11 +1024,17 @@
     // Clear-day / bonus buttons (delegated, rendered dynamically)
     pager.addEventListener("click", (e) => {
       if (e.target.closest("#btn-clear-day")) {
-        Storage.clearEntry(state.selectedDate);
-        renderMonth();
+        if (!state.settings.confirmClearDay || confirm("Effacer les données de ce jour ?")) {
+          Storage.clearEntry(state.selectedDate);
+          renderMonth();
+        }
       }
       if (e.target.closest("#btn-edit-bonus")) {
         openBonusDialog();
+      }
+      const realSalaryBtn = e.target.closest("#btn-edit-real-salary");
+      if (realSalaryBtn) {
+        openRealSalaryDialog(ymFromKey(realSalaryBtn.dataset.ym));
       }
       if (e.target.closest("#btn-toggle-view")) {
         const next = state.settings.viewMode === "month" ? "week" : "month";
@@ -606,7 +1043,7 @@
         } else {
           const t = todayStr();
           const inCurrentMonth = ymOf(t).y === state.currentMonth.y && ymOf(t).m === state.currentMonth.m;
-          state.currentWeekStart = mondayOf(inCurrentMonth ? t : dstr(state.currentMonth.y, state.currentMonth.m, 1));
+          state.currentWeekStart = weekStartOf(inCurrentMonth ? t : dstr(state.currentMonth.y, state.currentMonth.m, 1));
         }
         state.settings = Storage.setSetting("viewMode", next);
         renderMonth();
@@ -652,6 +1089,33 @@
   });
 
   // ---------------------------------------------------------------------
+  // Real salary dialog (salaire réellement perçu, vs. l'estimation calculée)
+  // ---------------------------------------------------------------------
+  function ymFromKey(key) {
+    const [y, m] = key.split("-").map(Number);
+    return { y, m };
+  }
+  function openRealSalaryDialog(ym) {
+    state.realSalaryYm = ym;
+    const existing = Storage.getRealSalaries()[ymKey(ym.y, ym.m)];
+    document.getElementById("real-salary-title").textContent = `Salaire réel — ${monthLabel(ym)}`;
+    document.getElementById("real-salary-amount").value = existing != null ? existing : "";
+    openDialog("dialog-real-salary");
+  }
+  document.getElementById("real-salary-save").addEventListener("click", () => {
+    const ym = state.realSalaryYm;
+    const raw = document.getElementById("real-salary-amount").value.trim();
+    const key = ymKey(ym.y, ym.m);
+    if (raw === "") {
+      Storage.clearRealSalary(key);
+    } else {
+      Storage.saveRealSalary(key, parseFloat(raw) || 0);
+    }
+    closeDialog("dialog-real-salary");
+    renderMonth();
+  });
+
+  // ---------------------------------------------------------------------
   // Month/year picker (main nav)
   // ---------------------------------------------------------------------
   function renderMonthPickerGrid() {
@@ -674,7 +1138,7 @@
     const btn = e.target.closest(".month-btn");
     if (!btn) return;
     state.currentMonth = { y: state.pickerYear, m: Number(btn.dataset.month) };
-    state.currentWeekStart = mondayOf(dstr(state.currentMonth.y, state.currentMonth.m, 1));
+    state.currentWeekStart = weekStartOf(dstr(state.currentMonth.y, state.currentMonth.m, 1));
     closeDialog("dialog-month-picker");
     renderMonth();
   });
@@ -697,6 +1161,11 @@
     } else {
       state.currentWeekStart = dstr_addDays(state.currentWeekStart, 7);
     }
+    renderMonth();
+  });
+  document.getElementById("btn-today").addEventListener("click", () => {
+    state.currentMonth = ymOf(todayStr());
+    state.currentWeekStart = weekStartOf(todayStr());
     renderMonth();
   });
 
@@ -728,6 +1197,9 @@
       case "close-dialog":
         closeAllDialogs();
         break;
+      case "close-drawer":
+        closeDrawer();
+        break;
       case "close-settings-sub":
         btn.closest(".dialog").classList.add("hidden");
         renderSettingsOverview();
@@ -755,10 +1227,6 @@
       case "open-annual-stats":
         closeDrawer();
         openAnnualStatsDialog();
-        break;
-      case "toggle-theme":
-        state.settings = Storage.setSetting("darkTheme", !state.settings.darkTheme);
-        renderAll();
         break;
     }
   });
@@ -819,7 +1287,21 @@
     reader.readAsText(file, "utf-8");
   });
 
+  // Inside the Android wrapper, a plain WebView has no download manager for blob: URLs — an
+  // <a download> click on one silently does nothing. AndroidDownload.saveBase64 (from
+  // MainActivity.kt) writes the file into the device's Téléchargements folder instead.
+  // Falls back to the normal browser download for a plain PWA/desktop testing context.
   function downloadBlob(blob, filename) {
+    if (window.AndroidDownload && window.AndroidDownload.saveBase64) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = String(reader.result).split(",")[1] || "";
+        window.AndroidDownload.saveBase64(filename, blob.type || "application/octet-stream", base64);
+      };
+      reader.onerror = () => showToast("Échec de l'enregistrement du fichier");
+      reader.readAsDataURL(blob);
+      return;
+    }
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -828,6 +1310,24 @@
     a.click();
     document.body.removeChild(a);
     setTimeout(() => URL.revokeObjectURL(url), 4000);
+  }
+
+  // XLSX exports go through AndroidBridge.saveXlsx instead of downloadBlob's
+  // AndroidDownload.saveBase64 — native decides whether a custom destination folder is
+  // configured (Réglages > Données > Export XLSX, e.g. a folder synced by kDrive) and
+  // writes there, falling back to Téléchargements when none is set.
+  function downloadXlsxBlob(blob, filename) {
+    if (window.AndroidBridge && window.AndroidBridge.saveXlsx) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = String(reader.result).split(",")[1] || "";
+        window.AndroidBridge.saveXlsx(filename, blob.type || "application/octet-stream", base64);
+      };
+      reader.onerror = () => showToast("Échec de l'enregistrement du fichier");
+      reader.readAsDataURL(blob);
+      return;
+    }
+    downloadBlob(blob, filename);
   }
 
   async function maybeRunAutoBackup() {
@@ -935,6 +1435,8 @@
     return {
       entries: withTollTotals(Storage.getEntriesArray()),
       monthlyBonuses: Storage.getBonuses(),
+      realSalaries: Storage.getRealSalaries(),
+      peages: Storage.getPeages(),
       salaryBase: s.salaryBase,
       rateJour: s.rateJour,
       rateNuit: s.rateNuit,
@@ -953,9 +1455,16 @@
     state.xlsxMode = "monthly";
     state.xlsxMonth = Object.assign({}, state.currentMonth);
     state.xlsxYear = state.currentMonth.y;
+    if (!state.xlsxCustomStart) {
+      state.xlsxCustomStart = dstr(state.currentMonth.y, state.currentMonth.m, 1);
+      state.xlsxCustomEnd = todayStr();
+    }
+    document.getElementById("xlsx-custom-start").value = state.xlsxCustomStart;
+    document.getElementById("xlsx-custom-end").value = state.xlsxCustomEnd;
     document.querySelectorAll("#xlsx-mode .segmented-btn").forEach((b) => b.classList.toggle("selected", b.dataset.value === "monthly"));
     document.getElementById("xlsx-monthly-pickers").classList.remove("hidden");
     document.getElementById("xlsx-annual-picker").classList.add("hidden");
+    document.getElementById("xlsx-custom-pickers").classList.add("hidden");
     document.getElementById("xlsx-status").textContent = "";
     renderXlsxPickers();
     openDialog("dialog-export-xlsx");
@@ -968,6 +1477,7 @@
     document.querySelectorAll("#xlsx-mode .segmented-btn").forEach((b) => b.classList.toggle("selected", b === btn));
     document.getElementById("xlsx-monthly-pickers").classList.toggle("hidden", state.xlsxMode !== "monthly");
     document.getElementById("xlsx-annual-picker").classList.toggle("hidden", state.xlsxMode !== "annual");
+    document.getElementById("xlsx-custom-pickers").classList.toggle("hidden", state.xlsxMode !== "custom");
   });
   document.getElementById("xlsx-year-prev").addEventListener("click", () => { state.xlsxMonth.y--; renderXlsxPickers(); });
   document.getElementById("xlsx-year-next").addEventListener("click", () => { state.xlsxMonth.y++; renderXlsxPickers(); });
@@ -975,19 +1485,28 @@
   document.getElementById("xlsx-month-next").addEventListener("click", () => { state.xlsxMonth = ymAdd(state.xlsxMonth, 1); renderXlsxPickers(); });
   document.getElementById("xlsx-annual-year-prev").addEventListener("click", () => { state.xlsxYear--; renderXlsxPickers(); });
   document.getElementById("xlsx-annual-year-next").addEventListener("click", () => { state.xlsxYear++; renderXlsxPickers(); });
+  document.getElementById("xlsx-custom-start").addEventListener("change", (e) => { state.xlsxCustomStart = e.target.value; });
+  document.getElementById("xlsx-custom-end").addEventListener("change", (e) => { state.xlsxCustomEnd = e.target.value; });
 
   document.getElementById("xlsx-export-btn").addEventListener("click", () => {
     const statusEl = document.getElementById("xlsx-status");
+    if (state.xlsxMode === "custom" && (!state.xlsxCustomStart || !state.xlsxCustomEnd || state.xlsxCustomStart > state.xlsxCustomEnd)) {
+      statusEl.textContent = "Choisis une période valide (date de début avant la date de fin).";
+      return;
+    }
     statusEl.textContent = "Génération en cours...";
     setTimeout(() => {
       try {
         const config = xlsxConfig();
         if (state.xlsxMode === "monthly") {
           const blob = XlsxExport.buildMonthly(state.xlsxMonth.y, state.xlsxMonth.m, config);
-          downloadBlob(blob, `MyShift_Releve_${ymKey(state.xlsxMonth.y, state.xlsxMonth.m)}.xlsx`);
-        } else {
+          downloadXlsxBlob(blob, `MyShift_Releve_${ymKey(state.xlsxMonth.y, state.xlsxMonth.m)}.xlsx`);
+        } else if (state.xlsxMode === "annual") {
           const blob = XlsxExport.buildAnnual(state.xlsxYear, config);
-          downloadBlob(blob, `MyShift_Releve_${state.xlsxYear}.xlsx`);
+          downloadXlsxBlob(blob, `MyShift_Releve_${state.xlsxYear}.xlsx`);
+        } else {
+          const blob = XlsxExport.buildCustomRange(state.xlsxCustomStart, state.xlsxCustomEnd, config);
+          downloadXlsxBlob(blob, `MyShift_Releve_${state.xlsxCustomStart}_au_${state.xlsxCustomEnd}.xlsx`);
         }
         statusEl.textContent = "";
         closeDialog("dialog-export-xlsx");
@@ -1036,22 +1555,29 @@
       </div>`;
     }).join("");
 
-    const totals = { jour: 0, nuit: 0, mn: 0, repos: 0, conges: 0, toll: 0, total: 0 };
+    const realSalaries = Storage.getRealSalaries();
+    const totals = { jour: 0, nuit: 0, mn: 0, repos: 0, conges: 0, toll: 0, total: 0, real: 0, realCount: 0 };
     const rows = months.map((md, i) => {
       const s = md.stats;
       totals.jour += s.jour; totals.nuit += s.nuit; totals.mn += s.mn;
       totals.repos += s.repos; totals.conges += s.conges;
       totals.toll += md.toll; totals.total += md.total;
-      return `<tr><td>${MONTHS_FR_SHORT[i]}</td><td>${s.jour}</td><td>${s.nuit}</td><td>${s.mn}</td><td>${s.repos}</td><td>${s.conges}</td><td>${formatEuro(md.toll)}</td><td>${formatEuro(md.total)}</td></tr>`;
+      const real = realSalaries[ymKey(year, i + 1)];
+      if (real != null) { totals.real += real; totals.realCount++; }
+      const realCell = real != null ? formatEuro(real) : "—";
+      return `<tr><td>${MONTHS_FR_SHORT[i]}</td><td>${s.jour}</td><td>${s.nuit}</td><td>${s.mn}</td><td>${s.repos}</td><td>${s.conges}</td><td>${formatEuro(md.toll)}</td><td>${formatEuro(md.total)}</td><td>${realCell}</td></tr>`;
     }).join("");
+    const totalRealCell = totals.realCount > 0 ? formatEuro(totals.real) : "—";
 
     document.getElementById("annual-stats-content").innerHTML = `
       ${bars}
-      <table class="stat-table">
-        <thead><tr><th>Mois</th><th>Jour</th><th>Nuit</th><th>MN</th><th>Repos</th><th>Congés</th><th>Péages</th><th>Total</th></tr></thead>
-        <tbody>${rows}</tbody>
-        <tfoot><tr><td>Total</td><td>${totals.jour}</td><td>${totals.nuit}</td><td>${totals.mn}</td><td>${totals.repos}</td><td>${totals.conges}</td><td>${formatEuro(totals.toll)}</td><td>${formatEuro(totals.total)}</td></tr></tfoot>
-      </table>`;
+      <div class="stat-table-scroll">
+        <table class="stat-table">
+          <thead><tr><th>Mois</th><th>Jour</th><th>Nuit</th><th>MN</th><th>Repos</th><th>Congés</th><th>Péages</th><th>Estimé</th><th>Réel</th></tr></thead>
+          <tbody>${rows}</tbody>
+          <tfoot><tr><td>Total</td><td>${totals.jour}</td><td>${totals.nuit}</td><td>${totals.mn}</td><td>${totals.repos}</td><td>${totals.conges}</td><td>${formatEuro(totals.toll)}</td><td>${formatEuro(totals.total)}</td><td>${totalRealCell}</td></tr></tfoot>
+        </table>
+      </div>`;
   }
 
   function openAnnualStatsDialog() {
@@ -1098,13 +1624,21 @@
     document.getElementById("set-reminderEnabled").checked = s.reminderEnabled;
     document.getElementById("set-reminderHour-row").classList.toggle("hidden", !s.reminderEnabled);
     document.getElementById("set-reminderHour").textContent = s.reminderHour;
+    renderQuickRepliesRows();
 
     document.getElementById("set-darkTheme").checked = s.darkTheme;
     document.getElementById("set-colorPalette").textContent = Palettes.PALETTES.find((p) => p.id === s.colorPalette).label;
     document.getElementById("set-bg-row").classList.toggle("hidden", !s.darkTheme);
     document.getElementById("set-darkBgVariant").textContent = BG_VARIANTS.find((b) => b.id === s.darkBgVariant).label;
+    document.getElementById("set-logoColor").textContent = logoColorInfo(s.logoColor).label;
     document.getElementById("set-showWeekNumbers").checked = s.showWeekNumbers;
     document.getElementById("set-weekStartSunday").checked = s.weekStartSunday;
+    document.getElementById("set-hapticFeedback").checked = s.hapticFeedback;
+    document.getElementById("set-confirmClearDay").checked = s.confirmClearDay;
+    renderStatusColorRows();
+    document.getElementById("set-customTextColor").value =
+      s.customTextColor || getComputedStyle(document.documentElement).getPropertyValue("--on-surface").trim() || "#ffffff";
+    document.getElementById("btn-reset-text-color").classList.toggle("hidden", !s.customTextColor);
     document.getElementById("set-horaireJour").textContent = s.horaireJour;
     document.getElementById("set-horaireNuit").textContent = s.horaireNuit;
     document.querySelectorAll("#set-repos-weekdays .weekday-btn").forEach((btn) => {
@@ -1123,6 +1657,18 @@
     if (nativeBridge) {
       document.getElementById("set-native-backup-folder").textContent = s.nativeBackupFolderName || "Non choisi";
     }
+    const nativeXlsxBridge = window.AndroidBridge && window.AndroidBridge.chooseXlsxFolder;
+    document.getElementById("btn-choose-xlsx-folder-native").classList.toggle("hidden", !nativeXlsxBridge);
+    if (nativeXlsxBridge) {
+      document.getElementById("set-native-xlsx-folder").textContent = s.nativeXlsxFolderName || "Téléchargements (par défaut)";
+      document.getElementById("btn-reset-xlsx-folder").classList.toggle("hidden", !s.nativeXlsxFolderName);
+    }
+    const nativeMediaBridge = window.AndroidBridge && window.AndroidBridge.chooseMediaFolder;
+    document.getElementById("btn-choose-media-folder-native").classList.toggle("hidden", !nativeMediaBridge);
+    if (nativeMediaBridge) {
+      document.getElementById("set-native-media-folder").textContent = s.nativeMediaFolderName || "Non configuré";
+      document.getElementById("btn-reset-media-folder").classList.toggle("hidden", !s.nativeMediaFolderName);
+    }
   }
 
   function renderSettingsOverview() {
@@ -1134,6 +1680,50 @@
       Palettes.PALETTES.find((p) => p.id === s.colorPalette).label;
     document.getElementById("cat-value-notifications").textContent =
       s.reminderEnabled ? s.reminderHour : "Désactivées";
+  }
+
+  function renderStatusColorRows() {
+    const container = document.getElementById("set-status-colors");
+    if (!container) return;
+    const base = Palettes.shiftColors(state.settings.colorPalette, state.settings.darkTheme);
+    const custom = state.settings.customStatusColors || {};
+    container.innerHTML = STATUSES.map((status) => {
+      const hex = custom[status] || base[status];
+      const isCustom = !!custom[status];
+      return `
+        <div class="value-row status-color-row">
+          <span>${Icons.icon(STATUS_ICON[status], 16)} ${STATUS_LABEL_LONG[status]}</span>
+          <div class="status-color-controls">
+            <button type="button" class="icon-btn small status-color-reset${isCustom ? "" : " hidden"}" data-status="${status}" aria-label="Réinitialiser">↺</button>
+            <input type="color" class="status-color-input" data-status="${status}" value="${hex}">
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function renderQuickRepliesRows() {
+    const container = document.getElementById("set-quick-replies");
+    if (!container) return;
+    const list = state.settings.quickReplies || [];
+    const peages = Storage.getPeages();
+    container.innerHTML = list.map((qr, idx) => {
+      const statusBtns = STATUSES.map((s) =>
+        `<button type="button" class="segmented-btn${qr.status === s ? " selected" : ""}" data-idx="${idx}" data-field="status" data-value="${s}">${STATUS_LETTER[s]}</button>`
+      ).join("");
+      const showToll = peages.length > 0 && (qr.status === "jour" || qr.status === "nuit" || qr.status === "mn");
+      const tollRow = showToll ? `
+          <div class="segmented" data-quick-row="toll">
+            ${[0, 1, 2].map((v) =>
+              `<button type="button" class="segmented-btn${(qr.toll || 0) === v ? " selected" : ""}" data-idx="${idx}" data-field="toll" data-value="${v}">${v} péage${v !== 1 ? "s" : ""}</button>`
+            ).join("")}
+          </div>` : "";
+      return `
+        <div class="value-row quick-reply-row">
+          <span class="muted">Réponse rapide ${idx + 1}</span>
+          <div class="segmented" data-quick-row="status">${statusBtns}</div>
+          ${tollRow}
+        </div>`;
+    }).join("");
   }
 
   function openSettingsDialog() {
@@ -1236,10 +1826,35 @@
     }
     if (e.target.closest("#set-palette-row")) openPaletteDialog();
     if (e.target.closest("#set-bg-row")) openBgDialog();
+    if (e.target.closest("#set-logo-color-row")) openLogoColorDialog();
     if (e.target.closest("#btn-add-peage")) openPeageEditDialog(null);
     if (e.target.closest("#btn-choose-backup-folder-native")) {
       if (window.AndroidBridge && window.AndroidBridge.chooseBackupFolder) {
         window.AndroidBridge.chooseBackupFolder();
+      }
+    }
+    if (e.target.closest("#btn-reset-xlsx-folder")) {
+      // Reset takes priority over the row's own "choose a folder" click below it.
+      if (window.AndroidBridge && window.AndroidBridge.clearXlsxFolder) {
+        window.AndroidBridge.clearXlsxFolder();
+        state.settings = Storage.setSetting("nativeXlsxFolderName", null);
+        renderSettingsValues();
+      }
+    } else if (e.target.closest("#btn-choose-xlsx-folder-native")) {
+      if (window.AndroidBridge && window.AndroidBridge.chooseXlsxFolder) {
+        window.AndroidBridge.chooseXlsxFolder();
+      }
+    }
+    if (e.target.closest("#btn-reset-media-folder")) {
+      if (window.AndroidBridge && window.AndroidBridge.clearMediaFolder) {
+        window.AndroidBridge.clearMediaFolder();
+        state.settings = Storage.setSetting("nativeMediaFolderName", null);
+        renderSettingsValues();
+        if (state.editingDate) renderEditDayMedia();
+      }
+    } else if (e.target.closest("#btn-choose-media-folder-native")) {
+      if (window.AndroidBridge && window.AndroidBridge.chooseMediaFolder) {
+        window.AndroidBridge.chooseMediaFolder();
       }
     }
     const dowBtn = e.target.closest("#set-repos-weekdays .weekday-btn");
@@ -1252,6 +1867,31 @@
     }
     const peageRow = e.target.closest("#set-peages-list .value-row[data-peage-id]");
     if (peageRow) openPeageEditDialog(peageRow.dataset.peageId);
+    const quickBtn = e.target.closest("#set-quick-replies .segmented-btn");
+    if (quickBtn) {
+      const idx = Number(quickBtn.dataset.idx);
+      const field = quickBtn.dataset.field;
+      const value = field === "toll" ? Number(quickBtn.dataset.value) : quickBtn.dataset.value;
+      const list = (state.settings.quickReplies || []).map((qr) => Object.assign({}, qr));
+      list[idx] = Object.assign({}, list[idx], { [field]: value });
+      if (field === "status" && value !== "jour" && value !== "nuit" && value !== "mn") list[idx].toll = 0;
+      state.settings = Storage.setSetting("quickReplies", list);
+      renderQuickRepliesRows();
+      syncQuickRepliesToNative();
+    }
+    if (e.target.closest("#btn-reset-text-color")) {
+      state.settings = Storage.setSetting("customTextColor", null);
+      renderSettingsValues();
+      renderAll();
+    }
+    const colorReset = e.target.closest(".status-color-reset");
+    if (colorReset) {
+      const custom = Object.assign({}, state.settings.customStatusColors || {});
+      delete custom[colorReset.dataset.status];
+      state.settings = Storage.setSetting("customStatusColors", custom);
+      renderStatusColorRows();
+      renderAll();
+    }
     if (e.target.closest('[data-action="export-json"]')) exportJsonBackup();
     if (e.target.closest('[data-action="import-json"]')) document.getElementById("json-file-input").click();
     if (e.target.closest("#btn-reset-data")) {
@@ -1278,11 +1918,26 @@
       state.settings = Storage.setSetting("includeRatesInBackup", e.target.checked);
       return;
     }
+    if (e.target.id === "set-customTextColor") {
+      state.settings = Storage.setSetting("customTextColor", e.target.value);
+      renderSettingsValues();
+      renderAll();
+      return;
+    }
+    if (e.target.classList.contains("status-color-input")) {
+      const custom = Object.assign({}, state.settings.customStatusColors || {}, { [e.target.dataset.status]: e.target.value });
+      state.settings = Storage.setSetting("customStatusColors", custom);
+      renderStatusColorRows();
+      renderAll();
+      return;
+    }
     const map = {
       "set-reminderEnabled": "reminderEnabled",
       "set-darkTheme": "darkTheme",
       "set-showWeekNumbers": "showWeekNumbers",
       "set-weekStartSunday": "weekStartSunday",
+      "set-hapticFeedback": "hapticFeedback",
+      "set-confirmClearDay": "confirmClearDay",
       "set-exportNotes": "exportNotes",
       "set-exportToll": "exportToll",
       "set-exportBase": "exportBase"
@@ -1291,8 +1946,15 @@
     if (!key) return;
     state.settings = Storage.setSetting(key, e.target.checked);
     if (key === "reminderEnabled" && e.target.checked) requestNotificationPermission();
-    renderSettingsValues();
+    if (key === "reminderEnabled") syncReminderConfigToNative();
+    // Realign the currently displayed week immediately instead of waiting for the next
+    // navigation — otherwise the row order stays stale until prev/next/today is tapped.
+    if (key === "weekStartSunday") state.currentWeekStart = weekStartOf(state.currentWeekStart);
+    // renderAll() first: it calls applyTheme(), which renderSettingsValues() depends on to
+    // read the current --on-surface value for the "Couleur du texte" swatch preview when no
+    // custom color is set — otherwise a dark/light toggle shows the swatch a step behind.
     renderAll();
+    renderSettingsValues();
   });
 
   function openGenericEdit(key, label, type) {
@@ -1311,6 +1973,7 @@
         if (!/^\d{2}:\d{2}$/.test(value)) return closeDialog("dialog-generic-edit");
       }
       state.settings = Storage.setSetting(key, value);
+      if (key === "reminderHour") syncReminderConfigToNative();
       closeDialog("dialog-generic-edit");
       renderSettingsValues();
       renderAll();
@@ -1366,6 +2029,30 @@
     renderAll();
   });
 
+  function openLogoColorDialog() {
+    const list = document.getElementById("logo-color-list");
+    list.innerHTML = LOGO_COLORS.map((c) => {
+      const isCurrent = c.id === state.settings.logoColor;
+      return `<div class="palette-option" data-id="${c.id}">
+        <div class="logo-swatch">${logoSvg(c.hex, 32)}</div>
+        <div class="name">${c.label}</div>
+        ${isCurrent ? '<div class="check">✓</div>' : ""}
+      </div>`;
+    }).join("");
+    openDialog("dialog-logo-color");
+  }
+  document.getElementById("logo-color-list").addEventListener("click", (e) => {
+    const opt = e.target.closest(".palette-option");
+    if (!opt) return;
+    state.settings = Storage.setSetting("logoColor", opt.dataset.id);
+    if (window.AndroidBridge && window.AndroidBridge.chooseLauncherIconColor) {
+      window.AndroidBridge.chooseLauncherIconColor(opt.dataset.id);
+    }
+    closeDialog("dialog-logo-color");
+    renderSettingsValues();
+    renderAll();
+  });
+
   // ---------------------------------------------------------------------
   // Reminder notifications (best-effort, only while the app tab is open)
   // ---------------------------------------------------------------------
@@ -1374,23 +2061,54 @@
       Notification.requestPermission();
     }
   }
+  // Android Chrome/WebView refuses `new Notification(...)` called directly from page
+  // script ("Illegal constructor") — it only allows notifications shown through a
+  // Service Worker registration. That's why the reminder used to silently do nothing
+  // on phones even though the setting showed "enabled". Falls back to the plain
+  // constructor for browsers where no service worker is registered (e.g. desktop
+  // Safari, or file:// during local testing).
+  function showAppNotification(title, options) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.getRegistration().then((reg) => {
+        if (reg) reg.showNotification(title, options);
+        else try { new Notification(title, options); } catch (e) { /* ignore */ }
+      }).catch(() => { try { new Notification(title, options); } catch (e) { /* ignore */ } });
+    } else {
+      try { new Notification(title, options); } catch (e) { /* ignore */ }
+    }
+  }
   function reminderTick() {
+    // Inside the Android wrapper, Reminders.kt/ReminderReceiver own the daily reminder via
+    // AlarmManager so it still fires with the app closed — this page-only fallback would
+    // just produce a duplicate notification on top of it, so step aside when that bridge
+    // is present.
+    if (window.AndroidBridge && window.AndroidBridge.setReminderConfig) return;
     const s = state.settings;
     if (!s.reminderEnabled) return;
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     const now = new Date();
     const hhmm = pad2(now.getHours()) + ":" + pad2(now.getMinutes());
-    if (hhmm !== s.reminderHour) return;
+    // ">=" rather than "===": the app only checks while it's open (no background
+    // execution here), so if it happens to be closed at the exact reminder minute —
+    // very likely on a phone — an exact-match check would miss the reminder for the
+    // whole day. Comparing "at or after" means opening the app any time later that
+    // day still catches up on today's reminder.
+    if (hhmm < s.reminderHour) return;
     const today = todayStr();
     if (localStorage.getItem("myshift.lastReminderDate") === today) return;
     localStorage.setItem("myshift.lastReminderDate", today);
     if (Storage.getEntry(today)) return; // déjà renseigné, pas besoin de rappel
-    new Notification("MyShift", {
+    showAppNotification("MyShift", {
       body: "Ton poste d'aujourd'hui n'est pas encore renseigné.",
       icon: "icons/icon-192.png"
     });
   }
   setInterval(reminderTick, 30000);
+  reminderTick();
+  if (state.settings.reminderEnabled) requestNotificationPermission();
+  syncReminderConfigToNative();
+  syncQuickRepliesToNative();
 
   // ---------------------------------------------------------------------
   // Service worker registration

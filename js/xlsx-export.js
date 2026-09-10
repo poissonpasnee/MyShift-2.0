@@ -151,7 +151,7 @@
       })
       .sort((a, b) => a.date.localeCompare(b.date));
   }
-  function monthStats(y, m, entries, config, bonus) {
+  function monthStats(y, m, entries, config, bonus, realSalary) {
     const tollCount = entries.reduce((s, e) => s + (e.tollCount || 0), 0);
     const tollMontant = entries.reduce((s, e) => s + (e.tollMontant || 0), 0);
     const shiftPrimes = entries.reduce((s, e) => s + rateFor(e.status, config), 0);
@@ -162,7 +162,8 @@
       jours: count("jour"), nuits: count("nuit"), mns: count("mn"),
       repos: count("repos"), conges: count("conges"),
       tollCount, tollMontant, shiftPrimes, bonus,
-      salaryBase: config.salaryBase, salary
+      salaryBase: config.salaryBase, salary,
+      real: realSalary != null ? realSalary : null
     };
   }
   function detailRows(entries, config) {
@@ -177,6 +178,37 @@
         note: e.note || "",
         salary: rateFor(e.status, config) + tollEarned
       };
+    });
+  }
+  function fmtFr(dateStr) { return dateStr.split("-").reverse().join("/"); }
+
+  // Stats for an arbitrary date range — deliberately excludes salaryBase/bonus (both are
+  // monthly figures that don't prorate meaningfully across an arbitrary span of days).
+  function statsForRange(entries, config) {
+    const tollCount = entries.reduce((s, e) => s + (e.tollCount || 0), 0);
+    const tollMontant = entries.reduce((s, e) => s + (e.tollMontant || 0), 0);
+    const shiftPrimes = entries.reduce((s, e) => s + rateFor(e.status, config), 0);
+    const count = (status) => entries.filter((e) => e.status === status).length;
+    return {
+      jours: count("jour"), nuits: count("nuit"), mns: count("mn"),
+      repos: count("repos"), conges: count("conges"),
+      tollCount, tollMontant, shiftPrimes
+    };
+  }
+
+  // Per-péage breakdown (count + amount, using the historical rate in effect on each day)
+  // over the same range — every configured péage is listed, even with 0 uses, for clarity.
+  function peageBreakdownForRange(entries, peages) {
+    return (peages || []).map((p) => {
+      let count = 0, amount = 0;
+      entries.forEach((e) => {
+        const c = (e.tolls && e.tolls[p.id]) || 0;
+        if (c > 0) {
+          count += c;
+          amount += c * global.Storage.peageAmountAt(p, e.date);
+        }
+      });
+      return { name: p.name, count, amount };
     });
   }
 
@@ -320,7 +352,7 @@
   }
   function recapCols() {
     return col(1, 18) + col(2, 12) + col(3, 12) + col(4, 12) + col(5, 12) + col(6, 12) +
-      col(7, 12) + col(8, 18) + col(9, 14) + col(10, 20);
+      col(7, 12) + col(8, 18) + col(9, 14) + col(10, 20) + col(11, 20);
   }
 
   function assembleSheet(cols, body, merges, freezeRow) {
@@ -370,6 +402,9 @@
     xml += statLineCur(r, "Prime exceptionnelle", stats.bonus, S.CURRENCY); r++;
     r++;
     xml += row(r, sc(`A${r}`, "SALAIRE ESTIMÉ DU MOIS", S.LABEL) + nc(`B${r}`, stats.salary, S.KPI_DARK_CUR), 28); r++;
+    if (stats.real != null) {
+      xml += row(r, sc(`A${r}`, "SALAIRE RÉEL DU MOIS", S.LABEL) + nc(`B${r}`, stats.real, S.KPI_DARK_CUR), 28); r++;
+    }
     return [xml, r];
   }
 
@@ -413,11 +448,59 @@
     return assembleSheet(monthDetailCols(), body, merges, headerRow);
   }
 
+  function sheetCustomRange(startStr, endStr, rows, stats, peageBreakdown) {
+    let body = "";
+    let r = 1;
+    body += row(r, sc(`A${r}`, `Période du ${fmtFr(startStr)} au ${fmtFr(endStr)}`, S.TITLE), 26);
+    const merges = [`A${r}:F${r}`];
+    r += 2;
+
+    body += row(r, sc(`A${r}`, "Totaux de la période", S.SECTION), 20); r++;
+    r++;
+    body += statLine(r, "Jours travaillés", stats.jours, S.JOUR); r++;
+    body += statLine(r, "Nuits travaillées", stats.nuits, S.NUIT); r++;
+    body += statLine(r, "Montées de nuit (MN)", stats.mns, S.MN); r++;
+    body += statLine(r, "Jours de repos", stats.repos, S.REPOS); r++;
+    body += statLine(r, "Jours de congés", stats.conges, S.CONGES); r++;
+    r++;
+    body += statLineCur(r, "Primes de quart (hors salaire de base)", stats.shiftPrimes, S.CURRENCY); r++;
+    r++;
+
+    body += row(r, sc(`A${r}`, "Péages", S.SECTION), 20); r++;
+    peageBreakdown.forEach((b) => {
+      body += statLine(r, b.name, b.count, S.PEAGE); r++;
+      body += statLineCur(r, `Montant ${b.name}`, b.amount, S.PEAGE_CUR); r++;
+    });
+    body += statLine(r, "Total péages (nombre)", stats.tollCount, S.PEAGE); r++;
+    body += statLineCur(r, "Total péages (€)", stats.tollMontant, S.PEAGE_CUR); r++;
+    r++;
+
+    body += row(r, sc(`A${r}`, "Détail jour par jour", S.SECTION), 20);
+    r++;
+    const headerRow = r;
+    body += row(r,
+      sc(`A${r}`, "Jour", S.HEADER) + sc(`B${r}`, "Date", S.HEADER) + sc(`C${r}`, "Type", S.HEADER) +
+      sc(`D${r}`, "Libellé", S.HEADER) + sc(`E${r}`, "Note", S.HEADER) + sc(`F${r}`, "Salaire estimé (€)", S.HEADER)
+    );
+    r++;
+    rows.forEach((entry) => {
+      const [textStyle, curStyle] = styleForStatus(entry.status);
+      body += row(r,
+        sc(`A${r}`, entry.dayOfWeek, textStyle) + sc(`B${r}`, entry.date, textStyle) +
+        sc(`C${r}`, entry.type, textStyle) + sc(`D${r}`, entry.label, textStyle) +
+        sc(`E${r}`, entry.note, textStyle) + nc(`F${r}`, entry.salary, curStyle)
+      );
+      r++;
+    });
+
+    return assembleSheet(monthDetailCols(), body, merges, headerRow);
+  }
+
   function sheetRecapAnnual(year, months) {
     let body = "";
     let r = 1;
     body += row(r, sc(`A${r}`, `Récap annuel ${year}`, S.TITLE), 26);
-    const merges = [`A${r}:J${r}`];
+    const merges = [`A${r}:K${r}`];
     r += 2;
 
     const sum = (key) => months.reduce((s, m) => s + m[key], 0);
@@ -425,19 +508,22 @@
     const totalRepos = sum("repos"), totalConges = sum("conges");
     const totalTollCount = sum("tollCount"), totalTollMontant = sum("tollMontant");
     const totalBonus = sum("bonus"), totalSalary = sum("salary");
+    const hasAnyReal = months.some((m) => m.real != null);
+    const totalReal = months.reduce((s, m) => s + (m.real || 0), 0);
 
     body += row(r,
       sc(`B${r}`, "Jours", S.KPI_LABEL) + sc(`C${r}`, "Nuits", S.KPI_LABEL) + sc(`D${r}`, "MN", S.KPI_LABEL) +
       sc(`E${r}`, "Repos", S.KPI_LABEL) + sc(`F${r}`, "Congés", S.KPI_LABEL) + sc(`G${r}`, "Péages", S.KPI_LABEL) +
       sc(`H${r}`, "Montant péages (€)", S.KPI_LABEL) + sc(`I${r}`, "Prime (€)", S.KPI_LABEL) +
-      sc(`J${r}`, "Salaire annuel estimé (€)", S.KPI_LABEL)
+      sc(`J${r}`, "Salaire annuel estimé (€)", S.KPI_LABEL) + sc(`K${r}`, "Salaire annuel réel (€)", S.KPI_LABEL)
     );
     r++;
     body += row(r,
       ic(`B${r}`, totalJours, S.KPI_JOUR) + ic(`C${r}`, totalNuits, S.KPI_NUIT) + ic(`D${r}`, totalMns, S.KPI_MN) +
       ic(`E${r}`, totalRepos, S.KPI_REPOS) + ic(`F${r}`, totalConges, S.KPI_CONGES) +
       ic(`G${r}`, totalTollCount, S.KPI_PEAGE) + nc(`H${r}`, totalTollMontant, S.KPI_PEAGE_CUR) +
-      nc(`I${r}`, totalBonus, S.KPI_DARK_CUR) + nc(`J${r}`, totalSalary, S.KPI_DARK_CUR),
+      nc(`I${r}`, totalBonus, S.KPI_DARK_CUR) + nc(`J${r}`, totalSalary, S.KPI_DARK_CUR) +
+      (hasAnyReal ? nc(`K${r}`, totalReal, S.KPI_DARK_CUR) : sc(`K${r}`, "—", S.KPI_LABEL)),
       26
     );
     r += 2;
@@ -449,7 +535,8 @@
       sc(`A${r}`, "Mois", S.HEADER) + sc(`B${r}`, "Jours", S.JOUR) + sc(`C${r}`, "Nuits", S.NUIT) +
       sc(`D${r}`, "MN", S.MN) + sc(`E${r}`, "Repos", S.REPOS) + sc(`F${r}`, "Congés", S.CONGES) +
       sc(`G${r}`, "Péages", S.PEAGE) + sc(`H${r}`, "Montant péages (€)", S.PEAGE) +
-      sc(`I${r}`, "Prime (€)", S.HEADER) + sc(`J${r}`, "Salaire estimé (€)", S.HEADER)
+      sc(`I${r}`, "Prime (€)", S.HEADER) + sc(`J${r}`, "Salaire estimé (€)", S.HEADER) +
+      sc(`K${r}`, "Salaire réel (€)", S.HEADER)
     );
     r++;
     months.forEach((m) => {
@@ -457,7 +544,8 @@
         sc(`A${r}`, m.label, S.DEFAULT) + ic(`B${r}`, m.jours, S.DEFAULT) + ic(`C${r}`, m.nuits, S.DEFAULT) +
         ic(`D${r}`, m.mns, S.DEFAULT) + ic(`E${r}`, m.repos, S.DEFAULT) + ic(`F${r}`, m.conges, S.DEFAULT) +
         ic(`G${r}`, m.tollCount, S.DEFAULT) + nc(`H${r}`, m.tollMontant, S.CURRENCY) +
-        nc(`I${r}`, m.bonus, S.CURRENCY) + nc(`J${r}`, m.salary, S.CURRENCY)
+        nc(`I${r}`, m.bonus, S.CURRENCY) + nc(`J${r}`, m.salary, S.CURRENCY) +
+        (m.real != null ? nc(`K${r}`, m.real, S.CURRENCY) : sc(`K${r}`, "—", S.DEFAULT))
       );
       r++;
     });
@@ -465,7 +553,8 @@
       sc(`A${r}`, "TOTAL ANNUEL", S.TOTAL) + ic(`B${r}`, totalJours, S.TOTAL) + ic(`C${r}`, totalNuits, S.TOTAL) +
       ic(`D${r}`, totalMns, S.TOTAL) + ic(`E${r}`, totalRepos, S.TOTAL) + ic(`F${r}`, totalConges, S.TOTAL) +
       ic(`G${r}`, totalTollCount, S.TOTAL) + nc(`H${r}`, totalTollMontant, S.TOTAL_CUR) +
-      nc(`I${r}`, totalBonus, S.TOTAL_CUR) + nc(`J${r}`, totalSalary, S.TOTAL_CUR)
+      nc(`I${r}`, totalBonus, S.TOTAL_CUR) + nc(`J${r}`, totalSalary, S.TOTAL_CUR) +
+      (hasAnyReal ? nc(`K${r}`, totalReal, S.TOTAL_CUR) : sc(`K${r}`, "—", S.TOTAL))
     );
 
     return assembleSheet(recapCols(), body, merges, headerRow);
@@ -527,7 +616,8 @@
   function buildMonthly(year, month, config) {
     const filtered = entriesForMonth(config.entries, year, month);
     const bonus = (config.monthlyBonuses && config.monthlyBonuses[ymKey(year, month)]) || 0;
-    const stats = monthStats(year, month, filtered, config, bonus);
+    const real = config.realSalaries ? config.realSalaries[ymKey(year, month)] : undefined;
+    const stats = monthStats(year, month, filtered, config, bonus, real);
     const sheet = sheetMonthDetail(stats.label, year, detailRows(filtered, config), stats, true);
     return buildWorkbook([sheet], [stats.label]);
   }
@@ -538,7 +628,8 @@
     for (let m = 1; m <= 12; m++) {
       const me = entriesForMonth(filtered, year, m);
       const bonus = (config.monthlyBonuses && config.monthlyBonuses[ymKey(year, m)]) || 0;
-      bundles.push({ m, entries: me, stats: monthStats(year, m, me, config, bonus) });
+      const real = config.realSalaries ? config.realSalaries[ymKey(year, m)] : undefined;
+      bundles.push({ m, entries: me, stats: monthStats(year, m, me, config, bonus, real) });
     }
     const sheets = [sheetRecapAnnual(year, bundles.map((b) => b.stats))];
     const names = ["Récap annuel"];
@@ -549,5 +640,15 @@
     return buildWorkbook(sheets, names);
   }
 
-  global.XlsxExport = { buildMonthly, buildAnnual };
+  function buildCustomRange(startStr, endStr, config) {
+    const filtered = (config.entries || [])
+      .filter((e) => e.date >= startStr && e.date <= endStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const stats = statsForRange(filtered, config);
+    const peageBreakdown = peageBreakdownForRange(filtered, config.peages);
+    const sheet = sheetCustomRange(startStr, endStr, detailRows(filtered, config), stats, peageBreakdown);
+    return buildWorkbook([sheet], ["Période"]);
+  }
+
+  global.XlsxExport = { buildMonthly, buildAnnual, buildCustomRange };
 })(window);
