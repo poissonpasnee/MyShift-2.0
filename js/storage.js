@@ -4,6 +4,7 @@
 
   const KEY_ENTRIES = "myshift.entries";
   const KEY_BONUSES = "myshift.bonuses";
+  const KEY_REAL_SALARIES = "myshift.realSalaries";
   const KEY_SETTINGS = "myshift.settings";
   const KEY_PEAGES = "myshift.peages";
 
@@ -28,7 +29,17 @@
     includeRatesInBackup: true,
     horaireJour: "7h-17h",
     horaireNuit: "21h30-6h",
-    viewMode: "week"
+    viewMode: "week",
+    hapticFeedback: true,
+    confirmClearDay: true,
+    customStatusColors: {},
+    customTextColor: null,
+    quickReplies: [
+      { status: "nuit", toll: 0 },
+      { status: "nuit", toll: 1 },
+      { status: "nuit", toll: 2 }
+    ],
+    logoColor: "blue"
   };
 
   function readJson(key, fallback) {
@@ -82,14 +93,19 @@
     return migrateEntryTolls(getEntriesMap()[date] || null);
   }
 
-  function saveEntry(date, status, ctype, note, tolls) {
+  // photoUri/audioUri are content:// URIs into the user-chosen media folder (see
+  // AndroidBridge.saveMediaFile in MainActivity.kt) — the actual bytes never touch
+  // localStorage, only this reference to where they live.
+  function saveEntry(date, status, ctype, note, tolls, photoUri, audioUri) {
     const map = getEntriesMap();
     map[date] = {
       date: date,
       status: status,
       ctype: ctype || null,
       note: note || null,
-      tolls: tolls || {}
+      tolls: tolls || {},
+      photoUri: photoUri || null,
+      audioUri: audioUri || null
     };
     writeJson(KEY_ENTRIES, map);
   }
@@ -112,6 +128,25 @@
     const map = getBonuses();
     map[month] = amount;
     writeJson(KEY_BONUSES, map);
+  }
+
+  // Salaire réellement perçu, saisi manuellement par mois (clé "YYYY-MM") —
+  // distinct du salaire estimé calculé à partir des taux, sert de référence
+  // pour les statistiques et l'export XLSX.
+  function getRealSalaries() {
+    return readJson(KEY_REAL_SALARIES, {});
+  }
+
+  function saveRealSalary(month, amount) {
+    const map = getRealSalaries();
+    map[month] = amount;
+    writeJson(KEY_REAL_SALARIES, map);
+  }
+
+  function clearRealSalary(month) {
+    const map = getRealSalaries();
+    delete map[month];
+    writeJson(KEY_REAL_SALARIES, map);
   }
 
   // -----------------------------------------------------------------
@@ -238,6 +273,7 @@
       includesRates: includeRates,
       entries: getEntriesMap(),
       bonuses: includeRates ? getBonuses() : {},
+      realSalaries: includeRates ? getRealSalaries() : {},
       settings: exportedSettings,
       peages: exportedPeages
     };
@@ -252,16 +288,16 @@
 
   // Appelé côté natif Android après que l'utilisateur a choisi un dossier
   // (Storage Access Framework), pour afficher son nom dans les réglages.
-  global.onBackupFolderChosen = function (folderName) {
-    setSetting("nativeBackupFolderName", folderName);
-    const el = document.getElementById("set-native-backup-folder");
-    if (el) el.textContent = folderName;
-  };
+  // window.onBackupFolderChosen / onXlsxFolderChosen / onMediaFolderChosen (called from
+  // MainActivity.kt after a Storage Access Framework folder pick) are defined in app.js
+  // instead of here — they need to refresh app.js's in-memory `state.settings` too, not
+  // just localStorage, which this data-layer file has no access to.
 
   function importAll(data) {
     if (!data || typeof data !== "object") throw new Error("Fichier invalide.");
     if (data.entries) writeJson(KEY_ENTRIES, data.entries);
     if (data.bonuses) writeJson(KEY_BONUSES, data.bonuses);
+    if (data.realSalaries) writeJson(KEY_REAL_SALARIES, data.realSalaries);
     if (data.settings) writeJson(KEY_SETTINGS, Object.assign({}, DEFAULT_SETTINGS, data.settings));
     if (Array.isArray(data.peages)) writeJson(KEY_PEAGES, data.peages);
   }
@@ -278,6 +314,9 @@
     replaceAllEntries,
     getBonuses,
     saveBonus,
+    getRealSalaries,
+    saveRealSalary,
+    clearRealSalary,
     resetAll,
     exportAll,
     importAll,
